@@ -52,6 +52,7 @@ export default function App() {
               <PartitionShelf
                 key={activeGroup.id}
                 group={activeGroup}
+                tableName={activeTable.table}
                 selectedEntityName={selectedEntityByGroup[activeGroup.id]}
                 onSelect={(groupId, entityName) => {
                   startTransition(() => {

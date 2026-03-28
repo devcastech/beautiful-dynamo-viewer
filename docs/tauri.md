@@ -2,6 +2,7 @@
 
 > Esta parte está pensada para hacerse a mano como ejercicio de aprendizaje de Rust.
 > Cada paso indica qué conceptos leer **antes** de codear ese paso.
+> Los ejemplos están basados en las tablas reales del proyecto: `CediStoreTable` y `CediCartTable`.
 
 ---
 
@@ -25,8 +26,12 @@ npx tauri init
 ```
 
 Respuestas al wizard:
+- App name → `dynamo-viewer`
+- Window title → `Dynamo Viewer`
 - Web assets location → `../dist`
 - Dev server URL → `http://localhost:5173`
+- Dev command → `npm run dev`
+- Build command → `npm run build`
 
 ### Archivos generados
 
@@ -43,25 +48,39 @@ src-tauri/
   icons/
 ```
 
-### Configuración mínima en `tauri.conf.json`
+### `tauri.conf.json` mínimo para este proyecto
 
-- `identifier`: reverse-domain único, e.g. `"com.tunombre.dynamoviewer"` — requerido para sandboxing en macOS
-- `build.beforeDevCommand`: el comando para arrancar Vite
-- `build.devUrl`: `"http://localhost:5173"`
-- `build.frontendDist`: `"../dist"`
+```json
+{
+  "identifier": "com.tudominio.dynamoviewer",
+  "app": {
+    "windows": [
+      {
+        "title": "Dynamo Viewer",
+        "width": 1280,
+        "height": 800
+      }
+    ]
+  },
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  }
+}
+```
 
 ### Qué leer
 
 - Arquitectura de Tauri: https://v2.tauri.app/concept/
 - Referencia completa de `tauri.conf.json`: https://v2.tauri.app/reference/config/
-- Diferencias Tauri v1 vs v2 (el schema de config cambió): https://v2.tauri.app/start/migrate/from-tauri-1/
 
 ### Verificar antes de continuar
 
 ```bash
-rustc --version   # debe ser ≥ 1.77.2
-rustup update stable  # si no
-npx tauri dev     # debe abrir la ventana con el frontend actual
+rustc --version       # debe ser ≥ 1.77.2, si no: rustup update stable
+npx tauri dev         # debe abrir la ventana mostrando el frontend actual
 ```
 
 ---
@@ -73,90 +92,151 @@ npx tauri dev     # debe abrir la ventana con el frontend actual
 - Cómo funciona `Cargo.toml` y los version specifiers: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
 - Qué son los "features" (unidades de compilación opt-in): https://doc.rust-lang.org/cargo/reference/features.html
 
-### Dependencias
+### El bloque `[dependencies]` completo
 
-| Crate | Propósito | Features requeridas |
-|-------|-----------|---------------------|
-| `tauri` | framework core, IPC bridge | `wry`, `devtools` |
-| `tokio` | async runtime sobre el que corre el AWS SDK | `full` |
-| `aws-config` | carga la credential chain (env vars, `~/.aws`, etc.) | `behavior-version-latest` |
-| `aws-sdk-dynamodb` | cliente DynamoDB generado desde el modelo AWS | — |
-| `serde` | framework de serialización/deserialización | `derive` |
-| `serde_json` | implementación de serde para JSON | — |
-| `serde_dynamo` | convierte `AttributeValue` → tipos serde | `aws-sdk-dynamodb+1` |
-| `thiserror` | derive macro para error enums ergonómicos | — |
-| `dirs` | obtiene rutas del sistema (`home_dir()`, etc.) | — |
-| `configparser` | parsea archivos ini como `~/.aws/credentials` | — |
+```toml
+[dependencies]
+tauri           = { version = "2", features = ["wry", "devtools"] }
+tokio           = { version = "1", features = ["full"] }
+aws-config      = { version = "1", features = ["behavior-version-latest"] }
+aws-sdk-dynamodb = "1"
+serde           = { version = "1", features = ["derive"] }
+serde_json      = "1"
+serde_dynamo    = { version = "4", features = ["aws-sdk-dynamodb+1"] }
+thiserror       = "1"
+dirs            = "5"
+configparser    = "3"
+```
 
-### Referencias por crate
+### Por qué cada crate
 
-- tauri: https://docs.rs/tauri / https://crates.io/crates/tauri
-- tokio: https://docs.rs/tokio / tutorial: https://tokio.rs/tokio/tutorial
-- aws-config: https://docs.rs/aws-config (credential chain: https://docs.rs/aws-config/latest/aws_config/default_provider/credentials/index.html)
+| Crate | Propósito |
+|-------|-----------|
+| `tauri` | framework core, IPC bridge entre Rust y la webview |
+| `tokio` | async runtime — el SDK de AWS corre sobre él |
+| `aws-config` | carga credenciales: env vars, `~/.aws/credentials`, SSO, etc. |
+| `aws-sdk-dynamodb` | cliente DynamoDB, generado desde el modelo de servicio de AWS |
+| `serde` | framework de serialización — define los traits `Serialize`/`Deserialize` |
+| `serde_json` | implementación de serde para JSON |
+| `serde_dynamo` | convierte `AttributeValue` (tipo interno del SDK) a `serde_json::Value` |
+| `thiserror` | derive macro para crear error enums con menos boilerplate |
+| `dirs` | obtiene rutas del sistema (`~/`, config dir, etc.) de forma cross-platform |
+| `configparser` | parsea archivos ini — el formato de `~/.aws/credentials` |
+
+### Referencias
+
+- tauri: https://docs.rs/tauri
+- tokio: https://docs.rs/tokio — tutorial: https://tokio.rs/tokio/tutorial
+- aws-config: https://docs.rs/aws-config
 - aws-sdk-dynamodb: https://docs.rs/aws-sdk-dynamodb
-- serde: https://serde.rs / https://docs.rs/serde
-- serde_json: https://docs.rs/serde_json
-- serde_dynamo: https://docs.rs/serde_dynamo / https://crates.io/crates/serde_dynamo
+- serde: https://serde.rs
+- serde_dynamo: https://docs.rs/serde_dynamo
 - thiserror: https://docs.rs/thiserror
-- dirs: https://docs.rs/dirs
-- configparser: https://docs.rs/configparser
 
-### Gotchas
+### Gotcha crítico: compatibilidad serde_dynamo ↔ aws-sdk-dynamodb
 
-**Compatibilidad serde_dynamo ↔ aws-sdk-dynamodb:** ambas crates deben ser versiones
-compatibles. El feature flag de `serde_dynamo` debe coincidir con la versión del SDK que
-estás usando. Verificar el README de serde_dynamo antes de compilar — una incompatibilidad
-produce errores de tipo confusos.
+El feature `aws-sdk-dynamodb+1` de `serde_dynamo` debe coincidir con la major version del
+SDK. Si el SDK es `1.x`, el feature es `aws-sdk-dynamodb+1`. Si actualizas el SDK a `2.x`
+en el futuro, el feature cambia a `aws-sdk-dynamodb+2`. Una incompatibilidad produce errores
+de tipo confusos como:
 
-**Tiempo de compilación:** el primer `cargo build` toma varios minutos (el SDK es grande).
-Los builds incrementales son rápidos. Es normal.
+```
+error[E0308]: mismatched types
+  expected `aws_sdk_dynamodb::types::AttributeValue`
+     found `aws_sdk_dynamodb::types::AttributeValue`
+```
+
+(mismo nombre, distinta versión — el compilador los trata como tipos distintos)
 
 ---
 
-## Paso 3 — `main.rs` + `lib.rs`: entry point async y estado compartido
+## Paso 3 — `main.rs` + `lib.rs`: entry point y estado compartido
 
 ### Conceptos a leer primero
 
-- Ownership básico (fundamento de Rust): https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html
-- Structs: https://doc.rust-lang.org/book/ch05-00-structs.html
-- `#[tokio::main]` — macro que crea el runtime Tokio y ejecuta el async main: https://tokio.rs/tokio/tutorial/hello-tokio
-- Por qué `tokio::sync::Mutex` en vez de `std::sync::Mutex` en código async: https://tokio.rs/tokio/tutorial/shared-state#on-using-stdsyncmutex
+- Ownership básico: https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html
+- `#[tokio::main]` — macro que envuelve `main` con el runtime de Tokio: https://tokio.rs/tokio/tutorial/hello-tokio
+- Por qué no usar `std::sync::Mutex` en código async: https://tokio.rs/tokio/tutorial/shared-state#on-using-stdsyncmutex
 
-### División `main.rs` / `lib.rs` en Tauri 2.x
+### `main.rs` — solo el entry point
 
-- `main.rs`: solo el entry point binario, llama a `lib::run()`
-- `lib.rs`: contiene `pub fn run()` con el `tauri::Builder` chain
+```rust
+// src-tauri/src/main.rs
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-Este split existe para soportar targets mobile (que tienen un entry point distinto al binario).
-Mantener la convención.
+fn main() {
+    dynamo_viewer_lib::run();
+}
+```
 
-### Credential chain de `aws_config::load_from_env()`
+El atributo `#![cfg_attr(...)]` oculta la ventana de terminal en builds de release en Windows.
+En debug (desarrollo) la deja visible para ver logs.
 
-A pesar del nombre, carga la cadena completa en este orden:
-1. Variables de entorno `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
-2. Web Identity Token (para EKS)
-3. `~/.aws/credentials` y `~/.aws/config` (respeta `AWS_PROFILE` o usa `[default]`)
-4. Container credentials (ECS)
-5. EC2 instance metadata
+### `lib.rs` — inicialización del Client y registro de commands
 
-Documentación completa: https://docs.rs/aws-config/latest/aws_config/default_provider/credentials/index.html
+```rust
+// src-tauri/src/lib.rs
+mod commands;
+mod error;
 
-### Estado compartido con `.manage()`
+use tokio::sync::Mutex;
+use aws_sdk_dynamodb::Client;
 
-El `Client` de DynamoDB se inicializa una vez y se comparte entre todos los commands.
-Tauri provee un contenedor de estado type-safe: `.manage(valor)` en el Builder, y luego
-`tauri::State<T>` como parámetro en los commands.
+pub fn run() {
+    // El runtime de Tokio es creado por tauri::async_runtime internamente.
+    // Para inicializar el Client de forma async antes de arrancar Tauri,
+    // usamos tauri::async_runtime::block_on:
+    let client = tauri::async_runtime::block_on(async {
+        let config = aws_config::load_from_env().await;
+        Client::new(&config)
+    });
 
-Para soportar cambio de perfil en runtime (Paso 7), el tipo a gestionar es
-`tokio::sync::Mutex<aws_sdk_dynamodb::Client>` — **no** `std::sync::Mutex`, porque se va a
-usar `.await` mientras el lock está tomado, lo cual no es seguro con la versión de std.
+    tauri::Builder::default()
+        .manage(Mutex::new(client))          // ← estado compartido
+        .invoke_handler(tauri::generate_handler![
+            commands::query_table,
+            commands::list_aws_profiles,
+            commands::set_aws_profile,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+```
+
+**Por qué `Mutex<Client>` y no solo `Client`:**
+Tauri comparte el estado entre threads (cada command puede correr en su propio thread del pool
+de Tokio). `Client` no es `Send + Sync` por sí solo en todas las configuraciones.
+Además, el Paso 7 (cambio de perfil) necesita reemplazar el Client en runtime — para eso
+se necesita mutabilidad, que solo se puede tener de forma segura a través de un Mutex.
+
+**Credential chain de `aws_config::load_from_env()`:**
+A pesar del nombre, carga desde múltiples fuentes en este orden:
+1. `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` (env vars)
+2. `~/.aws/credentials` + `~/.aws/config` (respetando `AWS_PROFILE`)
+3. Container/EC2 metadata (si aplica)
+
+Docs: https://docs.rs/aws-config/latest/aws_config/default_provider/credentials/index.html
+
+### Verificación: command dummy antes de continuar
+
+Antes de continuar, agregar un command mínimo para verificar que el IPC funciona:
+
+```rust
+// en commands.rs (temporal)
+#[tauri::command]
+pub fn health_check() -> &'static str {
+    "ok"
+}
+```
+
+```ts
+// en el frontend (temporal)
+import { invoke } from '@tauri-apps/api/core'
+const result = await invoke('health_check')
+console.log(result) // "ok"
+```
 
 Referencia: https://v2.tauri.app/develop/state-management/
-
-### Verificación del paso
-
-Crear un command dummy que devuelva `"ok"` y verificar que el frontend puede hacer
-`invoke('health_check')` antes de continuar.
 
 ---
 
@@ -164,43 +244,81 @@ Crear un command dummy que devuelva `"ok"` y verificar que el frontend puede hac
 
 ### Conceptos a leer primero
 
-- Enums con datos en Rust (son mucho más potentes que en C): https://doc.rust-lang.org/book/ch06-00-enums.html
+- Enums con datos (mucho más expresivos que en TypeScript): https://doc.rust-lang.org/book/ch06-00-enums.html
 - `Option<T>` — Rust no tiene `null`, los valores opcionales son explícitos: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum-and-its-advantages-over-null-values
 - Derive macros: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
-- Serde derive: https://serde.rs/derive.html
 - Serde field attributes (`rename_all`, `tag`, `content`): https://serde.rs/field-attrs.html
-- Módulos y visibilidad (`pub`): https://doc.rust-lang.org/book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html
+- Representaciones de enums en serde: https://serde.rs/enum-representations.html
 
-### `QueryParams` struct
-
-Los campos opcionales de TypeScript se vuelven `Option<T>` en Rust. Usar
-`#[serde(rename_all = "camelCase")]` en el struct para que los nombres JSON coincidan con
-las convenciones del frontend (camelCase) mientras el código Rust usa snake_case.
-
-### `SkCondition` enum
-
-El campo `op` actúa como discriminador para tres variantes. En Rust esto es un enum con datos.
-Usar `#[serde(tag = "op", content = "value")]` para el tagged enum representation.
-
-Para el variant `Between` que necesita dos valores (`value` y `value2`), la opción más limpia
-es definir un struct interno `BetweenValues { value: String, value2: String }` como payload.
-
-Representaciones de enums en serde: https://serde.rs/enum-representations.html
-
-### `QueryResult` struct (return type)
+### `QueryParams` — espejo del tipo TypeScript
 
 ```rust
-#[derive(Serialize)]
-pub struct QueryResult {
-    pub items: Vec<serde_json::Value>,
-    pub truncated: bool,
+// src-tauri/src/commands.rs
+use serde::{Deserialize, Serialize};
+
+// El #[serde(rename_all = "camelCase")] hace que el JSON use camelCase
+// mientras el código Rust usa snake_case. Ejemplo:
+//   Rust:  pk_name       → JSON: "pkName"
+//   Rust:  sk_condition  → JSON: "skCondition"
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryParams {
+    pub table:        String,
+    pub pk_name:      String,         // e.g. "PK" o "GSI1PK"
+    pub pk_value:     String,         // e.g. "USER#abc123"
+    pub sk_name:      Option<String>, // None = no SK condition
+    pub sk_condition: Option<SkCondition>,
+    pub index_name:   Option<String>, // e.g. "GSI1", None = base table
 }
 ```
 
-### Ubicación del código
+**Por qué `Option<String>` y no solo `String`:**
+En Rust no existe `null`. Cuando un campo puede no estar presente, se envuelve en `Option`.
+`Option<String>` puede ser `Some("GSI1".to_string())` o `None`. Serde omite el campo del
+JSON si es `None` (con `#[serde(skip_serializing_if = "Option::is_none")]`) o lo
+deserializa como `None` si viene `null` o ausente en el JSON.
 
-Crear `src-tauri/src/commands.rs` y declararlo como módulo en `lib.rs` con `mod commands;`.
-Usar `pub` en los tipos y funciones que necesita ver `lib.rs`.
+### `SkCondition` — enum con datos
+
+```rust
+// El #[serde(tag = "op")] indica que el campo "op" del JSON determina el variante.
+// El #[serde(content = "value")] indica que el payload va en el campo "value".
+//
+// JSON que llega desde el frontend:
+//   { "op": "Eq",         "value": "ORDER#2024-01-15" }
+//   { "op": "BeginsWith", "value": "ORDER#" }
+//   { "op": "Between",    "value": { "from": "ORDER#2024-01", "to": "ORDER#2024-02" } }
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "op", content = "value")]
+pub enum SkCondition {
+    Eq(String),
+    BeginsWith(String),
+    Between(BetweenValues),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BetweenValues {
+    pub from: String,  // e.g. "ORDER#2024-01-01"
+    pub to:   String,  // e.g. "ORDER#2024-01-31#ZZZZZZZ"
+}
+```
+
+**Por qué un struct separado para `Between`:**
+`#[serde(tag = "op", content = "value")]` espera que el payload de cada variante quepa en
+un campo `"value"`. Para `Eq` y `BeginsWith` un `String` cabe directamente. Para `Between`
+se necesitan dos valores — un struct anidado es lo más limpio.
+
+### `QueryResult` — lo que devuelve el command al frontend
+
+```rust
+#[derive(Debug, Serialize)]
+pub struct QueryResult {
+    pub items:     Vec<serde_json::Value>,
+    pub truncated: bool,   // true si se alcanzó el límite de páginas/items
+    pub count:     usize,
+}
+```
 
 ---
 
@@ -208,87 +326,186 @@ Usar `pub` en los tipos y funciones que necesita ver `lib.rs`.
 
 ### Conceptos a leer primero
 
-- `match` expressions (el compilador fuerza exhaustividad): https://doc.rust-lang.org/book/ch06-02-match.html
-- El operador `?` para propagación de errores: https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator
-- `Result<T, E>`: https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html
+- `match` expressions — el compilador fuerza exhaustividad: https://doc.rust-lang.org/book/ch06-02-match.html
+- El operador `?` para propagar errores sin `unwrap`: https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator
+- `HashMap`: https://doc.rust-lang.org/std/collections/struct.HashMap.html
 
-### Firma del command
+### La firma del command
 
 ```rust
+use tokio::sync::Mutex;
+use aws_sdk_dynamodb::Client;
+use crate::error::AppError;
+
 #[tauri::command]
 pub async fn query_table(
-    client: tauri::State<'_, tokio::sync::Mutex<Client>>,
+    client: tauri::State<'_, Mutex<Client>>,
     params: QueryParams,
-) -> Result<QueryResult, AppError>
+) -> Result<QueryResult, AppError> {
+    // ...
+}
 ```
 
 Tauri docs sobre commands: https://v2.tauri.app/develop/calling-rust/
 
-### El SDK usa el patrón "fluent builder"
+### Construir la query paso a paso
 
-`client.query()` devuelve un `QueryFluentBuilder`. Cada método en el builder devuelve el
-builder, permitiendo encadenamiento. Se finaliza con `.send().await`.
+El SDK usa el patrón "fluent builder": `client.query()` devuelve un `QueryFluentBuilder`,
+y cada método devuelve el mismo builder. Se ejecuta con `.send().await`.
 
-- `QueryFluentBuilder` docs: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/operation/query/builders/struct.QueryFluentBuilder.html
-- `AttributeValue` enum: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/types/enum.AttributeValue.html
+```rust
+use std::collections::HashMap;
+use aws_sdk_dynamodb::types::AttributeValue;
 
-### Expression attribute names
+pub async fn query_table(
+    client: tauri::State<'_, Mutex<Client>>,
+    params: QueryParams,
+) -> Result<QueryResult, AppError> {
+    let client = client.lock().await;
 
-**Siempre** usar `#pk` / `#sk` como placeholders en `KeyConditionExpression` y mapearlos
-al nombre real del atributo con `expression_attribute_names`. DynamoDB tiene una lista larga
-de reserved words — como `pk_name` y `sk_name` vienen del usuario, siempre usar placeholders
-para evitar conflictos silenciosos.
+    // --- 1. Construir el KeyConditionExpression y los mapas de atributos ---
+    //
+    // Siempre usar placeholders (#pk, #sk) en la expression y mapearlos
+    // a los nombres reales. DynamoDB tiene ~600 reserved words; si pk_name
+    // fuera "STATUS" (reserved word), la query fallaría sin el placeholder.
 
-### Match sobre `SkCondition`
+    let mut attr_names: HashMap<String, String> = HashMap::new();
+    let mut attr_values: HashMap<String, AttributeValue> = HashMap::new();
 
-Un `match` sobre el enum cubre los tres variantes. El compilador fuerza que todos los
-variantes estén cubiertos — si después se agrega un variante nuevo, el código no compila
-hasta que se maneje. Cada brazo agrega al `KeyConditionExpression` y registra los valores
-en el mapa de `expression_attribute_values`.
+    attr_names.insert("#pk".to_string(), params.pk_name.clone());
+    attr_values.insert(":pk".to_string(), AttributeValue::S(params.pk_value.clone()));
 
-Para `Between`: la sintaxis DynamoDB es `#sk BETWEEN :sk AND :sk2`.
+    // Ejemplo real: query de órdenes de un usuario por GSI1
+    //   pk_name  = "GSI1PK"
+    //   pk_value = "USER#abc123"
+    // → KeyConditionExpression = "#pk = :pk"
+    // → ExpressionAttributeNames = {"#pk": "GSI1PK"}
+    // → ExpressionAttributeValues = {":pk": {"S": "USER#abc123"}}
 
-### Parámetros opcionales en el builder
+    let key_condition = match &params.sk_condition {
+        None => {
+            // Solo PK — válido en DynamoDB, retorna todos los items de esa partición
+            // Ejemplo: todos los registros de ORDER#<orderId> (OrderMeta + OrderItems + Shipments)
+            "#pk = :pk".to_string()
+        }
 
-Muchos métodos del SDK tienen una variante `set_*` que acepta `Option<T>` directamente,
-e.g. `.set_index_name(params.index_name)`. Verificar el builder docs para cada campo.
+        Some(SkCondition::Eq(sk_val)) => {
+            let sk_name = params.sk_name.as_deref().unwrap_or("SK");
+            attr_names.insert("#sk".to_string(), sk_name.to_string());
+            attr_values.insert(":sk".to_string(), AttributeValue::S(sk_val.clone()));
+
+            // Ejemplo: obtener solo el OrderMeta de una orden
+            //   sk_name  = "SK"
+            //   sk_value = "ORDER"
+            // → "#pk = :pk AND #sk = :sk"
+            "#pk = :pk AND #sk = :sk".to_string()
+        }
+
+        Some(SkCondition::BeginsWith(sk_val)) => {
+            let sk_name = params.sk_name.as_deref().unwrap_or("SK");
+            attr_names.insert("#sk".to_string(), sk_name.to_string());
+            attr_values.insert(":sk".to_string(), AttributeValue::S(sk_val.clone()));
+
+            // Ejemplo: listar todos los shipments de una orden
+            //   sk_name  = "SK"
+            //   sk_value = "SHIPMENT#"
+            // → "#pk = :pk AND begins_with(#sk, :sk)"
+            "#pk = :pk AND begins_with(#sk, :sk)".to_string()
+        }
+
+        Some(SkCondition::Between(range)) => {
+            let sk_name = params.sk_name.as_deref().unwrap_or("SK");
+            attr_names.insert("#sk".to_string(), sk_name.to_string());
+            attr_values.insert(":sk_from".to_string(), AttributeValue::S(range.from.clone()));
+            attr_values.insert(":sk_to".to_string(), AttributeValue::S(range.to.clone()));
+
+            // Ejemplo: órdenes de un usuario en rango de fechas por GSI1
+            //   sk_name  = "GSI1SK"
+            //   from     = "ORDER#2024-01-01"
+            //   to       = "ORDER#2024-01-31#ZZZZZZZ"  ← el ZZZZZZZ asegura el límite superior
+            // → "#pk = :pk AND #sk BETWEEN :sk_from AND :sk_to"
+            "#pk = :pk AND #sk BETWEEN :sk_from AND :sk_to".to_string()
+        }
+    };
+
+    // --- 2. Ensamblar el builder ---
+
+    let mut builder = client
+        .query()
+        .table_name(&params.table)
+        .key_condition_expression(key_condition)
+        .set_expression_attribute_names(Some(attr_names))
+        .set_expression_attribute_values(Some(attr_values));
+
+    // .set_index_name acepta Option<String> directamente — no necesita if let
+    builder = builder.set_index_name(params.index_name);
+
+    // --- 3. Ejecutar con paginación (ver Paso 8) ---
+    // (por ahora, una sola página para iterar)
+    let response = builder.send().await.map_err(AppError::from)?;
+
+    let raw_items: Vec<_> = response.items().to_vec();
+    let items: Vec<serde_json::Value> = serde_dynamo::from_items(raw_items)?;
+
+    Ok(QueryResult {
+        count: items.len(),
+        items,
+        truncated: false,
+    })
+}
+```
+
+Docs del builder: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/operation/query/builders/struct.QueryFluentBuilder.html
+`AttributeValue`: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/types/enum.AttributeValue.html
 
 ---
 
 ## Paso 6 — `AttributeValue` → JSON con `serde_dynamo`
 
-### El problema
+### El problema concreto
 
-DynamoDB devuelve `Vec<HashMap<String, AttributeValue>>`. El enum `AttributeValue` tiene
-variantes como `S(String)`, `N(String)`, `Bool(bool)`, `L(Vec<AttributeValue>)`,
-`M(HashMap<String, AttributeValue>)`, etc. No se puede serializar directamente a JSON
-plano — el wrapper aparecería en el output.
+DynamoDB devuelve items como `Vec<HashMap<String, AttributeValue>>`.
+`AttributeValue` es un enum del SDK con variantes tipadas:
+
+```
+S("USER#abc123")          → string
+N("42.50")                → número (como string internamente)
+Bool(true)                → booleano
+L([...])                  → lista
+M({"key": AttributeValue}) → mapa anidado
+Null(true)                → null
+SS(["a", "b"])            → string set
+NS(["1", "2"])            → number set
+```
+
+Si intentaras serializar esto directamente a JSON obtendrías:
+```json
+{"userId": {"S": "abc123"}, "total": {"N": "42.50"}}
+```
+
+Pero el frontend espera:
+```json
+{"userId": "abc123", "total": 42.50}
+```
 
 ### Solución con `serde_dynamo`
 
 ```rust
-use serde_dynamo::from_items;
-
-let items: Vec<serde_json::Value> = from_items(response.items().to_vec())?;
+// Convierte Vec<HashMap<String, AttributeValue>> → Vec<serde_json::Value>
+// Maneja recursivamente L (listas) y M (mapas anidados).
+let raw_items: Vec<_> = response.items().to_vec();
+let items: Vec<serde_json::Value> = serde_dynamo::from_items(raw_items)
+    .map_err(|e| AppError::Serialization(e.to_string()))?;
 ```
-
-Maneja recursivamente todos los tipos incluyendo `NULL`, `SS`, `NS`, `BS` y tipos anidados
-(`M`, `L`). Es la solución recomendada.
 
 `from_items` docs: https://docs.rs/serde_dynamo/latest/serde_dynamo/fn.from_items.html
 
-### Por qué no implementarlo a mano
-
-Una implementación manual con `match` es un buen ejercicio, pero el SDK puede agregar
-variantes nuevas al enum `AttributeValue` en versiones futuras. Si el match no es
-exhaustivo, los datos se perderían silenciosamente.
-
 ### Gotcha: números DynamoDB
 
-DynamoDB almacena números internamente como strings (el variante `N` contiene `String`,
-no `f64`). `serde_dynamo` los convierte a `serde_json::Number` preservando precisión
-completa. Una conversión manual a `f64` pierde precisión para enteros grandes (DynamoDB
-soporta hasta 38 dígitos).
+DynamoDB almacena números como strings en el wire format (`N("42.50")`). `serde_dynamo`
+los convierte a `serde_json::Number`, que preserva la representación original. Una conversión
+manual a `f64` perdería precisión en enteros grandes — DynamoDB soporta hasta 38 dígitos,
+`f64` solo garantiza ~15 dígitos significativos.
 
 ---
 
@@ -296,65 +513,176 @@ soporta hasta 38 dígitos).
 
 ### Conceptos a leer primero
 
-- `Arc<T>` (reference counting para ownership compartido entre threads): https://doc.rust-lang.org/book/ch16-03-shared-state.html
-- `Mutex<T>` y por qué es necesario para mutación compartida: https://doc.rust-lang.org/book/ch16-03-shared-state.html#using-mutexes-to-allow-access-to-data-from-one-thread-at-a-time
-- Diferencia `std::sync::Mutex` vs `tokio::sync::Mutex`: https://tokio.rs/tokio/tutorial/shared-state
-- I/O de archivos async en Tokio: https://docs.rs/tokio/latest/tokio/fs/index.html
+- `Mutex<T>` para mutación compartida entre threads: https://doc.rust-lang.org/book/ch16-03-shared-state.html
+- Por qué `tokio::sync::Mutex` y no `std::sync::Mutex`: https://tokio.rs/tokio/tutorial/shared-state
+- I/O async con Tokio: https://docs.rs/tokio/latest/tokio/fs/index.html
 
-### `set_aws_profile`
+### `set_aws_profile` — reemplazar el Client en runtime
 
-Usar `aws_config::from_env().profile_name("...").load().await` para cargar un nuevo config,
-construir nuevo `Client`, tomar el lock del Mutex con `.lock().await` y reemplazar el valor
-interior.
+```rust
+#[tauri::command]
+pub async fn set_aws_profile(
+    client: tauri::State<'_, Mutex<Client>>,
+    profile: String,
+    region: Option<String>,
+) -> Result<(), AppError> {
+    // Construir nuevo config con el perfil especificado
+    let mut loader = aws_config::from_env().profile_name(&profile);
+
+    if let Some(region_str) = region {
+        // aws_sdk_dynamodb::config::Region es un newtype sobre String
+        use aws_config::meta::region::RegionProviderChain;
+        use aws_sdk_dynamodb::config::Region;
+        let region = Region::new(region_str);
+        loader = loader.region(RegionProviderChain::first_try(region));
+    }
+
+    let new_config = loader.load().await;
+    let new_client = Client::new(&new_config);
+
+    // Tomar el lock y reemplazar el Client interior
+    // MutexGuard hace deref a &mut Client, por eso funciona la asignación con *
+    let mut guard = client.lock().await;
+    *guard = new_client;
+
+    Ok(())
+}
+```
 
 `ConfigLoader` docs: https://docs.rs/aws-config/latest/aws_config/struct.ConfigLoader.html
 
-### `list_aws_profiles`
+### `list_aws_profiles` — leer `~/.aws/credentials`
 
-Parsear `~/.aws/credentials` y `~/.aws/config` que son archivos en formato ini.
-Usar `dirs::home_dir()` para la ruta del home, `tokio::fs::read_to_string` para leer
-(versión async), y `configparser` para extraer los nombres de sección.
+```rust
+#[tauri::command]
+pub async fn list_aws_profiles() -> Result<Vec<String>, AppError> {
+    let home = dirs::home_dir()
+        .ok_or_else(|| AppError::Io("No se encontró el directorio home".to_string()))?;
 
-**Nota sobre el formato:**
-- En `~/.aws/credentials`: los perfiles aparecen como `[nombre-perfil]`
-- En `~/.aws/config`: los perfiles no-default aparecen como `[profile nombre-perfil]` (con el prefijo `profile `)
-- Deduplicar y ordenar el resultado
+    let credentials_path = home.join(".aws").join("credentials");
+    let config_path      = home.join(".aws").join("config");
 
-### Gotcha: blocking I/O en contexto async
+    let mut profiles: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-`std::fs::read_to_string` es blocking — bloquea el thread del pool de Tokio, lo cual puede
-detener otras tasks. Para archivos pequeños como los de AWS el impacto práctico es mínimo,
-pero el patrón correcto es `tokio::fs::read_to_string` o envolver en
-`tokio::task::spawn_blocking`.
+    // Leer ~/.aws/credentials
+    // Los perfiles aparecen como: [default], [produccion], [staging]
+    if credentials_path.exists() {
+        let content = tokio::fs::read_to_string(&credentials_path).await
+            .map_err(|e| AppError::Io(e.to_string()))?;
+
+        let mut parser = configparser::ini::Ini::new();
+        parser.read(content).map_err(|e| AppError::Io(e))?;
+        for section in parser.sections() {
+            profiles.insert(section);
+        }
+    }
+
+    // Leer ~/.aws/config
+    // Los perfiles no-default aparecen como: [profile produccion], [profile staging]
+    // El perfil default aparece como: [default]
+    if config_path.exists() {
+        let content = tokio::fs::read_to_string(&config_path).await
+            .map_err(|e| AppError::Io(e.to_string()))?;
+
+        let mut parser = configparser::ini::Ini::new();
+        parser.read(content).map_err(|e| AppError::Io(e))?;
+        for section in parser.sections() {
+            // Quitar el prefijo "profile " si existe
+            let name = section
+                .strip_prefix("profile ")
+                .unwrap_or(&section)
+                .to_string();
+            profiles.insert(name);
+        }
+    }
+
+    let mut result: Vec<String> = profiles.into_iter().collect();
+    result.sort();  // orden alfabético para la UI
+    Ok(result)
+}
+```
+
+**Gotcha:** `tokio::fs::read_to_string` es la versión async de `std::fs::read_to_string`.
+Usar la versión de std dentro de un command async bloquea el thread del pool de Tokio.
+Para archivos pequeños el impacto es mínimo, pero es buena práctica usar la versión async.
 
 ---
 
 ## Paso 8 — Paginación
 
-### El modelo de paginación de DynamoDB
+### Cómo pagina DynamoDB
 
-DynamoDB retorna máximo 1MB por llamada `query`. Si hay más items, la respuesta incluye
-`last_evaluated_key`. Para obtener la siguiente página se re-envía la misma query con
-`.exclusive_start_key(last_evaluated_key)`. La query termina cuando `response.last_evaluated_key()` devuelve `None`.
+Cada respuesta de `query` retorna hasta 1MB de datos. Si hay más items, la respuesta incluye
+`last_evaluated_key` (un `HashMap<String, AttributeValue>` que actúa como cursor).
+Para la siguiente página se envía la misma query con `.exclusive_start_key(cursor)`.
+La query termina cuando `last_evaluated_key()` devuelve `None`.
 
-Referencia AWS: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
+Referencia: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
 
-### Estrategia para un viewer
+### Loop de paginación
 
-Recolectar todas las páginas en un loop hasta un límite configurable (e.g. 1,000 items o
-10 páginas). Devolver `QueryResult { items, truncated: bool }` — el campo `truncated`
-indica si se cortó por el límite.
+```rust
+const MAX_ITEMS: usize = 1_000;
+const MAX_PAGES: usize = 10;
 
-```
-loop {
-    response = query.send().await?
-    items.extend(response.items())
-    if items.len() >= MAX_ITEMS || response.last_evaluated_key().is_none() { break }
-    query = query.exclusive_start_key(response.last_evaluated_key()...)
+pub async fn query_table( /* ... */ ) -> Result<QueryResult, AppError> {
+    let client = client.lock().await;
+
+    // ... construir attr_names, attr_values, key_condition como en Paso 5 ...
+
+    let mut all_raw_items: Vec<HashMap<String, AttributeValue>> = Vec::new();
+    let mut last_key: Option<HashMap<String, AttributeValue>> = None;
+    let mut truncated = false;
+    let mut pages = 0;
+
+    loop {
+        let mut builder = client
+            .query()
+            .table_name(&params.table)
+            .key_condition_expression(&key_condition)
+            .set_expression_attribute_names(Some(attr_names.clone()))
+            .set_expression_attribute_values(Some(attr_values.clone()))
+            .set_index_name(params.index_name.clone());
+
+        // Si tenemos un cursor de la página anterior, lo adjuntamos
+        if let Some(ref key) = last_key {
+            builder = builder.set_exclusive_start_key(Some(key.clone()));
+        }
+
+        let response = builder.send().await.map_err(AppError::from)?;
+
+        all_raw_items.extend(response.items().to_vec());
+        pages += 1;
+
+        // Guardar el cursor para la próxima iteración
+        // last_evaluated_key() devuelve Option<&HashMap<...>>, clonamos para owned
+        last_key = response.last_evaluated_key().map(|m| m.to_owned());
+
+        // Condiciones de parada
+        if last_key.is_none() {
+            break; // no hay más páginas
+        }
+        if all_raw_items.len() >= MAX_ITEMS || pages >= MAX_PAGES {
+            truncated = true;
+            break;
+        }
+    }
+
+    let items: Vec<serde_json::Value> = serde_dynamo::from_items(all_raw_items)
+        .map_err(|e| AppError::Serialization(e.to_string()))?;
+
+    Ok(QueryResult {
+        count: items.len(),
+        items,
+        truncated,
+    })
 }
 ```
 
-Poner `MAX_ITEMS` como constante en el módulo.
+**Nota sobre `clone()`:** en Rust, la asignación mueve el valor (ownership transfer) en lugar
+de copiarlo. Para reusar `attr_names` y `attr_values` en cada iteración del loop sin
+consumirlos, se clona. Para una sola pasada, el clone solo ocurre una vez — aceptable.
+Alternativa: reconstruir el builder desde parámetros en cada iteración.
 
 ---
 
@@ -362,94 +690,135 @@ Poner `MAX_ITEMS` como constante en el módulo.
 
 ### Conceptos a leer primero
 
-- Filosofía de error handling en Rust: https://doc.rust-lang.org/book/ch09-00-error-handling.html
+- `Result<T, E>` y la filosofía de errores en Rust: https://doc.rust-lang.org/book/ch09-00-error-handling.html
 - El trait `Error`: https://doc.rust-lang.org/std/error/trait.Error.html
-- `thiserror` crate y su motivación: https://docs.rs/thiserror/latest/thiserror/
+- `thiserror` y su propósito: https://docs.rs/thiserror/latest/thiserror/
 
-### Enfoque mínimo (para empezar)
-
-`.map_err(|e| e.to_string())?` en cada operación fallible. Suficiente para que funcione.
-El frontend recibe un string como rejection de la Promise.
-
-### Enfoque recomendado
-
-Definir un enum `AppError` con variantes por categoría:
+### `error.rs` — el enum centralizado
 
 ```rust
+// src-tauri/src/error.rs
+use aws_sdk_dynamodb::error::SdkError;
+use aws_sdk_dynamodb::operation::query::QueryError;
+
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 pub enum AppError {
+    // {0} se reemplaza con el Display del valor interno al hacer format!
     #[error("DynamoDB error: {0}")]
     Dynamo(String),
 
-    #[error("Profile not found: {0}")]
-    ProfileNotFound(String),
+    #[error("Serialization error: {0}")]
+    Serialization(String),
 
     #[error("IO error: {0}")]
     Io(String),
+
+    #[error("Profile not found: {0}")]
+    ProfileNotFound(String),
+}
+
+// Conversión automática desde SdkError<QueryError> → AppError::Dynamo
+// Esto hace que el operador ? funcione en llamadas al SDK sin map_err manual
+impl From<SdkError<QueryError>> for AppError {
+    fn from(err: SdkError<QueryError>) -> Self {
+        AppError::Dynamo(err.to_string())
+    }
+}
+
+// Conversión desde errores de serde_dynamo
+impl From<serde_dynamo::Error> for AppError {
+    fn from(err: serde_dynamo::Error) -> Self {
+        AppError::Serialization(err.to_string())
+    }
 }
 ```
 
-Implementar `From<SdkError<...>>` para `AppError` para que el operador `?` convierta
-automáticamente los errores del SDK.
+**Qué hace `thiserror::Error`:** genera automáticamente la implementación del trait
+`std::error::Error` y del trait `std::fmt::Display` basándose en los strings de `#[error(...)]`.
+Sin `thiserror` tendrías que implementar ambos traits a mano para cada variante.
 
-Con `Serialize` en el enum, el frontend recibe un objeto JSON estructurado en lugar de un
-string, lo que permite manejo de errores específico en la UI.
+**Qué hace `serde::Serialize` en el enum de error:** Tauri necesita serializar el error a JSON
+para enviarlo al frontend como rejection de la Promise. Con `Serialize`, el frontend recibe:
+```json
+{"Dynamo": "ResourceNotFoundException: Requested resource not found"}
+```
+En lugar de solo un string plano, lo que permite manejar tipos de error específicos en la UI.
+
+### Cómo Tauri propaga el error al frontend
+
+```rust
+// En el command — el ? propaga el error y Tauri lo serializa automáticamente
+let response = builder.send().await?;  // SdkError → AppError::Dynamo via From
+```
+
+```ts
+// En el frontend
+try {
+  const result = await invoke<QueryResult>('query_table', { params })
+} catch (error) {
+  // error tiene la forma: {"Dynamo": "mensaje..."} | {"Io": "..."} | etc.
+  if (typeof error === 'object' && 'Dynamo' in error) {
+    console.error('DynamoDB error:', error.Dynamo)
+  }
+}
+```
 
 Tauri docs sobre error handling: https://v2.tauri.app/develop/calling-rust/#error-handling
 
-### Cómo Tauri propaga errores al frontend
+---
 
-Cuando un command retorna `Err(e)`, la Promise de `invoke(...)` en JS es rechazada con el
-valor serializado de `e`. Catchearlo en TypeScript:
+## Estructura final de archivos
 
-```ts
-try {
-  const result = await invoke('query_table', { params })
-} catch (error) {
-  // error es el AppError serializado a JSON
-}
+```
+src-tauri/src/
+  main.rs          ← entry point, solo llama lib::run()
+  lib.rs           ← Builder, .manage(Mutex<Client>), .invoke_handler([...])
+  error.rs         ← AppError enum con thiserror + serde
+  commands.rs      ← query_table, list_aws_profiles, set_aws_profile
 ```
 
 ---
 
-## Secuencia de implementación (progresión para aprender Rust)
-
-Construir en este orden para tener feedback temprano en cada etapa:
+## Secuencia de implementación
 
 ```
 1. Scaffold + cargo build
-   → verifica resolución de versiones antes de escribir código
+   → verifica que las versiones de crates son compatibles (sin código tuyo todavía)
 
-2. main.rs con command placeholder que devuelve string hardcodeado
-   → verifica que el frontend puede invoke y recibir respuesta
+2. main.rs + lib.rs con health_check dummy
+   → verifica que invoke funciona end-to-end desde el frontend
 
-3. QueryParams struct + query_table que solo imprime los params y devuelve vec vacío
-   → verifica que la deserialización desde JS funciona correctamente
+3. error.rs con AppError básico (Dynamo + Io)
+   → tener el tipo de error antes de las operaciones que lo usan
 
-4. Query real contra DynamoDB sin paginación
-   → primer resultado end-to-end
+4. commands.rs: QueryParams + SkCondition + query_table que imprime params y devuelve []
+   → verifica que la deserialización desde JS funciona (los tipos Option, enums, etc.)
 
-5. Integrar serde_dynamo
-   → verificar que el JSON devuelto tiene la forma correcta
+5. query_table con query real sin paginación
+   → primer resultado end-to-end contra CediStoreTable o CediCartTable
 
-6. Paginación + QueryResult con truncated
-   → manejo de datasets grandes
+6. Integrar serde_dynamo
+   → verificar que el JSON tiene la forma esperada (sin wrappers S/N/etc.)
 
-7. list_aws_profiles + set_aws_profile
-   → cambio de perfil en runtime
+7. Loop de paginación + QueryResult.truncated
+   → para tablas con más de 1MB de datos en una partición
 
-8. Hardening de error handling con AppError
+8. list_aws_profiles + set_aws_profile
+   → cambio de perfil en runtime sin reiniciar la app
+
+9. Completar AppError con todos los From<> necesarios
    → solo después de que el happy path funcione
 ```
 
 ---
 
-## Recursos de Rust adicionales
+## Recursos de Rust
 
-| Recurso | Para qué sirve |
-|---------|----------------|
-| The Rust Book: https://doc.rust-lang.org/book/ | Base conceptual completa, leer cap. 4 (ownership), 6 (enums), 9 (errors), 16 (concurrencia) |
-| Rust by Example: https://doc.rust-lang.org/rust-by-example/ | Ejemplos concretos para cada concepto |
-| Tokio Tutorial: https://tokio.rs/tokio/tutorial | Async/await, tasks, shared state con Mutex |
-| docs.rs | Documentación de cualquier crate publicado en crates.io |
-| Rust Playground: https://play.rust-lang.org/ | Probar snippets sin setup local |
+| Recurso | Cuándo usarlo |
+|---------|---------------|
+| [The Rust Book](https://doc.rust-lang.org/book/) | Cap. 4 (ownership), 6 (enums/match), 9 (errors), 16 (concurrencia) — base conceptual |
+| [Rust by Example](https://doc.rust-lang.org/rust-by-example/) | Para ver código concreto de cada concepto mientras lees el Book |
+| [Tokio Tutorial](https://tokio.rs/tokio/tutorial) | Async/await, tasks, Mutex compartido — leer antes del Paso 3 |
+| [docs.rs](https://docs.rs) | Documentación de cualquier crate — buscar la firma exacta de cada método |
+| [Rust Playground](https://play.rust-lang.org/) | Probar snippets de Rust sin setup (tipos, match, serde) antes de integrarlo en Tauri |
+| [AWS SDK Rust examples](https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/rustv1/examples/dynamodb) | Ejemplos oficiales de DynamoDB con el SDK de Rust |

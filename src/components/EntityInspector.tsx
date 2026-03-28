@@ -1,12 +1,13 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Play } from 'lucide-react';
 import type { Entity, ShelfTheme } from '../types/schema.ts';
 
 interface EntityInspectorProps {
   entity: Entity;
   theme: ShelfTheme;
+  onUsePattern?: (pattern: string) => void;
 }
 
-export function EntityInspector({ entity, theme }: EntityInspectorProps) {
+export function EntityInspector({ entity, theme, onUsePattern }: EntityInspectorProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -85,12 +86,22 @@ export function EntityInspector({ entity, theme }: EntityInspectorProps) {
               {entity.accessPatterns.map((pattern, index) => (
                 <li
                   key={`${entity.name}:${index}`}
-                  className="flex items-start gap-2.5 text-sm text-slate-600"
+                  className="flex items-start gap-2.5 text-sm text-slate-600 group"
                 >
                   <span className="mt-0.5 text-[10px] font-mono text-slate-400 shrink-0 w-4 text-right">
                     {index + 1}.
                   </span>
-                  <span className="leading-5">{pattern}</span>
+                  <span className="leading-5 flex-1">{pattern}</span>
+                  {onUsePattern && (
+                    <button
+                      type="button"
+                      title="Use pattern"
+                      onClick={() => onUsePattern(pattern)}
+                      className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-700"
+                    >
+                      <Play className="h-3 w-3" />
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import type { PartitionGroup } from '../types/schema.ts';
 import { getShelfTheme } from '../utils/warehouse.ts';
 import { EntityInspector } from './EntityInspector.tsx';
+import { QueryPlayground } from './QueryPlayground.tsx';
 import { WarehouseDiagram } from './WarehouseDiagram.tsx';
 
 interface PartitionShelfProps {
   group: PartitionGroup;
+  tableName: string;
   selectedEntityName?: string;
   onSelect: (groupId: string, entityName: string) => void;
 }
 
-export function PartitionShelf({ group, selectedEntityName, onSelect }: PartitionShelfProps) {
+export function PartitionShelf({ group, tableName, selectedEntityName, onSelect }: PartitionShelfProps) {
   const theme = getShelfTheme(group.domain);
   const Icon = theme.icon;
   const selectedEntity =
@@ -19,6 +22,14 @@ export function PartitionShelf({ group, selectedEntityName, onSelect }: Partitio
     (total, entity) => total + entity.accessPatterns.length,
     0,
   );
+
+  const [activeTab, setActiveTab] = useState<'schema' | 'query'>('schema');
+  const [queryPattern, setQueryPattern] = useState<string | undefined>(undefined);
+
+  function handleUsePattern(pattern: string) {
+    setQueryPattern(pattern);
+    setActiveTab('query');
+  }
 
   return (
     <section className="border border-slate-200 rounded-lg overflow-hidden">
@@ -46,7 +57,48 @@ export function PartitionShelf({ group, selectedEntityName, onSelect }: Partitio
             onSelect={(entityName) => onSelect(group.id, entityName)}
           />
         </div>
-        <EntityInspector entity={selectedEntity} theme={theme} />
+
+        {/* Right panel with tabs */}
+        <div className="flex flex-col overflow-hidden">
+          <div className="flex gap-0.5 border-b border-slate-200 px-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab('schema')}
+              className={`px-3 py-2.5 text-xs transition-colors -mb-px border-b-2 ${
+                activeTab === 'schema'
+                  ? 'border-slate-900 text-slate-900 font-medium'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Schema
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('query')}
+              className={`px-3 py-2.5 text-xs transition-colors -mb-px border-b-2 ${
+                activeTab === 'query'
+                  ? 'border-slate-900 text-slate-900 font-medium'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Query
+            </button>
+          </div>
+
+          {activeTab === 'schema' ? (
+            <EntityInspector
+              entity={selectedEntity}
+              theme={theme}
+              onUsePattern={handleUsePattern}
+            />
+          ) : (
+            <QueryPlayground
+              entity={selectedEntity}
+              tableName={tableName}
+              initialPattern={queryPattern}
+            />
+          )}
+        </div>
       </div>
     </section>
   );

@@ -54,7 +54,7 @@ pub async fn query_table(
     params: QueryParams,
 ) -> Result<QueryResult, AppError> {
     println!("params {:?}", params);
-    
+
     // .lock().await obtiene acceso exclusivo al Client.
     // Devuelve un MutexGuard<Client> — cuando sale del scope se libera el lock.
     // El `client` de aquí en adelante es el Client real, no el Mutex.
@@ -179,11 +179,43 @@ pub async fn list_aws_profiles() -> Result<Vec<String>, AppError> {
         .arg("configure")
         .arg("list-profiles")
         .output()
-        .expect("Faild to list aws profiles");
-    // println!("{:?}", profiles);
+        .map_err(|e| AppError::from(e))?;
+
     let output = String::from_utf8_lossy(&profiles.stdout);
     let profiles: Vec<String> = output.lines().map(|l| l.to_string()).collect();
     Ok(profiles)
+}
+
+#[tauri::command]
+pub async fn aws_sso_login(profile: String) -> Result<bool, AppError> {
+    println!("sso login with {}", profile);
+    let result = tokio::process::Command::new("aws")
+        .arg("sso")
+        .arg("login")
+        .arg("--profile")
+        .arg(&profile)
+        .output()
+        .await
+        .map_err(|e| AppError::from(e))?;
+
+    Ok(result.status.success())
+}
+
+#[tauri::command]
+pub async fn check_aws_profile(profile: String) -> Result<bool, AppError> {
+    println!("check aws profile {}", profile);
+    let result = tokio::process::Command::new("aws")
+        .arg("sts")
+        .arg("get-caller-identity")
+        .arg("--profile")
+        .arg(&profile)
+        .output()
+        .await
+        .map_err(|e| AppError::from(e))?;
+    let output = String::from_utf8_lossy(&result.stdout);
+    println!("sts get-caller-identity output: {}", output);
+
+    Ok(result.status.success())
 }
 
 #[tauri::command]

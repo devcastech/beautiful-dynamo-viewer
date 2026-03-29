@@ -21,6 +21,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_aws_profiles,
             commands::set_aws_profile,
+            commands::aws_sso_login,
+            commands::check_aws_profile,
             commands::query_table
         ])
         .run(tauri::generate_context!())

@@ -22,3 +22,15 @@ impl std::fmt::Display for AppError {
         write!(f, "{}", self.message)
     }
 }
+
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        AppError { message: e.to_string() }
+    }
+}
+
+impl From<&str> for AppError {
+    fn from(e: &str) -> Self {
+        AppError { message: e.to_string() }
+    }
+}

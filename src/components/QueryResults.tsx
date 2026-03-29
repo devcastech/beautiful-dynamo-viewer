@@ -10,7 +10,6 @@ interface QueryResultsProps {
 export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
   const [view, setView] = useState<'table' | 'json'>('table');
 
-  console.log('result', result)
   if (result.status === 'idle') {
     return (
       <div className="flex items-center justify-center h-[100px] font-mono text-xs text-muted">

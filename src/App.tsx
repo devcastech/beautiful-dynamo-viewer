@@ -7,6 +7,15 @@ import { buildPartitionGroups } from "./utils/warehouse.ts";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { Check, LoaderCircle } from "lucide-react";
 const { invoke } = await import("@tauri-apps/api/core");
+
+const AWS_REGIONS = [
+  "us-east-1", "us-east-2", "us-west-1", "us-west-2",
+  "ca-central-1",
+  "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1", "eu-north-1",
+  "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2",
+  "ap-south-1", "sa-east-1",
+];
+
 export default function App() {
   const [activeTableIdx, setActiveTableIdx] = useState(0);
   const [selectedEntityByGroup, setSelectedEntityByGroup] = useState<
@@ -22,9 +31,12 @@ export default function App() {
   const [isAwsLoginInProgress, setIsAwsLoginInProgress] =
     useState<boolean>(false);
   const [awsLogged, setAwsLogged] = useState<boolean>(false);
+  const [region, setRegion] = useState<string>("us-east-1");
+  const [tableNameOverride, setTableNameOverride] = useState<string | undefined>(undefined);
 
   const activeTable = schemaData.tables[activeTableIdx];
   const partitionGroups = buildPartitionGroups(activeTable);
+  const effectiveTableName = tableNameOverride ?? activeTable.table;
 
   // Derive the active entity from selectedEntityByGroup across all groups
   const activeEntityName =
@@ -44,6 +56,7 @@ export default function App() {
       setActiveTableIdx(index);
       setSelectedEntityByGroup({});
       setQueryPattern(undefined);
+      setTableNameOverride(undefined);
     });
   }
 
@@ -84,7 +97,7 @@ export default function App() {
     setAwsLogged(true);
     await invoke("set_aws_profile", {
       profile,
-      region: "us-east-1",
+      region,
     });
   };
   const handleAwsSsoLogin = async (profile: string) => {
@@ -137,13 +150,9 @@ export default function App() {
 
         <div className="w-px h-5 bg-line" />
 
-        <div className="flex gap-2">
-          <label htmlFor="table-select">table</label>
-          {schemaData.tables.length === 1 ? (
-            <span className="font-mono text-xs text-secondary">
-              {activeTable.table}
-            </span>
-          ) : (
+        <div className="flex gap-2 items-center">
+          <label htmlFor="table-select" className="shrink-0">table</label>
+          {schemaData.tables.length === 1 ? null : (
             <select
               id="table-select"
               value={activeTableIdx}
@@ -157,10 +166,30 @@ export default function App() {
               ))}
             </select>
           )}
+          <input
+            value={effectiveTableName}
+            onChange={(e) => setTableNameOverride(e.target.value)}
+            className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[3px] outline-none w-52"
+            spellCheck={false}
+          />
         </div>
 
-        <div className="flex gap-2">
-          <label htmlFor="aws-profile">aws profile</label>
+        <div className="flex gap-2 items-center">
+          <label htmlFor="aws-region" className="shrink-0">region</label>
+          <select
+            id="aws-region"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[3px] cursor-pointer outline-none"
+          >
+            {AWS_REGIONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-2 items-center">
+          <label htmlFor="aws-profile" className="shrink-0">profile</label>
           <select
             onChange={(e) => {
               handleProfile(e.target.value);
@@ -237,7 +266,7 @@ export default function App() {
               <QueryPlayground
                 key={`${activeEntity.name}::${queryPattern}`}
                 entity={activeEntity}
-                tableName={activeTable.table}
+                tableName={effectiveTableName}
                 initialPattern={queryPattern}
               />
             </div>
@@ -274,7 +303,7 @@ export default function App() {
             <QueryPlayground
               key={`${activeEntity.name}::${queryPattern}`}
               entity={activeEntity}
-              tableName={activeTable.table}
+              tableName={effectiveTableName}
               initialPattern={queryPattern}
             />
           </div>

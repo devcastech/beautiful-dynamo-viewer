@@ -1,27 +1,28 @@
-use tokio::sync::Mutex;
+mod commands;
+mod error;
 use aws_sdk_dynamodb::Client;
-use crate::error::AppError;
-
+use tokio::sync::Mutex;
+use aws_config::BehaviorVersion;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
-pub async fn query_table(
-    client: tauri::State<'_, Mutex<Client>>,
-    params: QueryParams,
-) -> Result<QueryResult, AppError> {
-    println!("{:?}", params);
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let client = tauri::async_runtime::block_on(async {
+        let config = aws_config::defaults(BehaviorVersion::v2023_11_09())
+            .region("us-east-1")
+            .load()
+            .await;
+        Client::new(&config)
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .manage(Mutex::new(client))
+        .invoke_handler(tauri::generate_handler![
+            commands::list_aws_profiles,
+            commands::set_aws_profile,
+            commands::query_table
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

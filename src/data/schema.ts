@@ -3,7 +3,7 @@ import type { SchemaData } from '../types/schema.ts';
 export const schemaData: SchemaData = {
   tables: [
     {
-      table: 'CediStoreTable',
+      table: 'CediStoreTable-dev',
       story:
         'Aquí conviven catálogo, usuarios y órdenes. La lectura útil no es por tarjeta aislada sino por estantes lógicos que te muestran qué cae dentro de cada partición.',
       entities: [
@@ -195,7 +195,7 @@ export const schemaData: SchemaData = {
       ],
     },
     {
-      table: 'CediCartTable',
+      table: 'CediStoreTable-dev',
       domain: 'CART',
       story:
         'Esta tabla funciona como una bodega operativa por usuario: cada partición agrupa meta del carrito y sus líneas activas, separadas por el sort key.',

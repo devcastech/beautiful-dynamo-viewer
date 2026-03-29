@@ -1,1 +1,134 @@
 @import "tailwindcss";
+
+@theme inline {
+  /* Font families */
+  --font-family-mono: var(--font-mono);
+  --font-family-ui: var(--font-ui);
+
+  /* Background tokens */
+  --color-canvas: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-hovered: var(--bg-hover);
+
+  /* Border tokens */
+  --color-line: var(--border);
+  --color-line-dim: var(--border-subtle);
+
+  /* Text tokens */
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+
+  /* Accent tokens */
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-line: var(--accent-border);
+
+  /* State tokens */
+  --color-ok: var(--success);
+  --color-err: var(--error);
+  --color-err-dim: var(--error-dim);
+}
+
+:root {
+  --bg-base: #0C0E14;
+  --bg-surface: #131620;
+  --bg-elevated: #1A1E2A;
+  --bg-hover: #1E2333;
+  --border: #2D3449;
+  --border-subtle: #222840;
+
+  /* Text — WCAG AA compliant (≥4.5:1 on all dark surfaces) */
+  --text-primary: #EEF2FF;    /* L≈0.84, ratio >15:1 on base */
+  --text-secondary: #A8B8D8;  /* L≈0.44, ratio ~8:1 on base  */
+  --text-muted: #7B8BAB;      /* L≈0.26, ratio ~5.6:1 on base (was #475569 = 2.7:1 FAIL) */
+
+  --accent: #F59E0B;
+  --accent-dim: rgba(245, 158, 11, 0.12);
+  --accent-border: rgba(245, 158, 11, 0.35);
+  --success: #10B981;
+  --error: #EF4444;
+  --error-dim: rgba(239, 68, 68, 0.1);
+
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Focus — visible ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Thin dark scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2A3045 transparent;
+}
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2A3045;
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #374061;
+}
+
+/* Pattern display — literals secondary, variables amber */
+.pattern-literal {
+  color: var(--text-secondary);  /* #A8B8D8 — passes AA */
+  font-family: var(--font-mono);
+}
+.pattern-variable {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+/* Dot grid background for query panel */
+.dot-grid {
+  background-color: #141828;
+  background-image: radial-gradient(circle, #2A3352 1.2px, transparent 1.2px);
+  background-size: 20px 20px;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeSlideIn 0.2s ease-out forwards;
+}

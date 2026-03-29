@@ -1,130 +1,163 @@
-import { ArrowRight, Play } from 'lucide-react';
-import type { Entity, ShelfTheme } from '../types/schema.ts';
+import { Play } from 'lucide-react';
+import type { Entity } from '../types/schema.ts';
 
 interface EntityInspectorProps {
   entity: Entity;
-  theme: ShelfTheme;
   onUsePattern?: (pattern: string) => void;
 }
 
-export function EntityInspector({ entity, theme, onUsePattern }: EntityInspectorProps) {
+export function EntityInspector({ entity, onUsePattern }: EntityInspectorProps) {
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-5 border-b border-slate-200">
-        <div className="flex items-center justify-between mb-1">
-          <span className={`text-[10px] font-semibold uppercase tracking-wider ${theme.iconColor}`}>
+    <div className="flex flex-col h-full overflow-hidden animate-fade-in">
+      {/* Entity header */}
+      <div className="px-5 py-4 border-b border-line bg-surface shrink-0">
+        <div className="flex items-baseline gap-2 mb-[2px]">
+          <h3 className="m-0 font-mono font-semibold text-[15px] text-primary tracking-[-0.01em]">
+            {entity.name}
+          </h3>
+          <span className="font-mono text-[11px] font-medium tracking-[0.1em] uppercase text-accent">
             {entity.role}
           </span>
-          <span className="text-[10px] text-slate-400">{entity.attributes.length} attrs</span>
         </div>
-        <h3 className="text-xl font-bold tracking-tight text-slate-950">{entity.name}</h3>
-        <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">{entity.description}</p>
+        {entity.description && (
+          <p className="mt-1.5 mb-0 text-[13px] text-muted leading-relaxed font-ui">
+            {entity.description}
+          </p>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto">
         {/* Keys */}
-        <section className="px-6 py-4">
-          <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">
-            Keys
-          </h4>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs text-slate-500">PK</span>
-              <code className="text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded px-2 py-0.5">
-                {entity.pk}
-              </code>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs text-slate-500">SK</span>
-              <code className="text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded px-2 py-0.5">
-                {entity.sk}
-              </code>
-            </div>
-          </div>
-        </section>
+        <Section label="Keys">
+          <KeyRow label="PK" pattern={entity.pk} />
+          <KeyRow label="SK" pattern={entity.sk} />
+        </Section>
 
         {/* GSIs */}
         {entity.gsis.length > 0 && (
-          <section className="px-6 py-4">
-            <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">
-              Global Secondary Indexes
-            </h4>
-            <div className="space-y-2">
+          <Section label="Global Secondary Indexes">
+            <div className="flex flex-col gap-2">
               {entity.gsis.map((gsi) => (
-                <div
-                  key={`${entity.name}:${gsi.name}`}
-                  className="rounded border border-slate-200 overflow-hidden text-xs"
-                >
-                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 font-medium text-slate-700">
+                <div key={gsi.name} className="border border-line rounded-md overflow-hidden">
+                  <div className="py-[5px] px-2.5 bg-elevated border-b border-line font-mono text-[11px] font-semibold text-accent tracking-[0.05em]">
                     {gsi.name}
                   </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2">
-                    <div>
-                      <code className="block text-slate-600 truncate">{gsi.pk}</code>
-                      <code className="block text-slate-400 truncate">{gsi.sk}</code>
-                    </div>
-                    <ArrowRight className="h-3 w-3 text-slate-300" />
-                    <div className="text-right">
-                      <code className="block text-slate-600 truncate">{entity.pk}</code>
-                      <code className="block text-slate-400 truncate">{entity.sk}</code>
+                  <div className="p-2.5">
+                    <div className="flex flex-col gap-1">
+                      <GsiKeyRow prefix="PK →" pattern={gsi.pk} attr={gsi.pkAttr} />
+                      {gsi.sk && <GsiKeyRow prefix="SK →" pattern={gsi.sk} attr={gsi.skAttr ?? 'SK'} />}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
+          </Section>
         )}
 
         {/* Access Patterns */}
         {entity.accessPatterns.length > 0 && (
-          <section className="px-6 py-4">
-            <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">
-              Access Patterns
-            </h4>
-            <ul className="space-y-1.5">
+          <Section label="Access Patterns">
+            <ul className="m-0 p-0 list-none flex flex-col gap-[2px]">
               {entity.accessPatterns.map((pattern, index) => (
                 <li
-                  key={`${entity.name}:${index}`}
-                  className="flex items-start gap-2.5 text-sm text-slate-600 group"
+                  key={index}
+                  className={`group flex items-start gap-2 px-2 py-[5px] rounded transition-colors hover:bg-elevated ${onUsePattern ? 'cursor-pointer' : 'cursor-default'}`}
                 >
-                  <span className="mt-0.5 text-[10px] font-mono text-slate-400 shrink-0 w-4 text-right">
+                  <span className="font-mono text-[11px] text-muted min-w-[18px] text-right pt-px shrink-0">
                     {index + 1}.
                   </span>
-                  <span className="leading-5 flex-1">{pattern}</span>
+                  <span className="flex-1 text-[13px] text-secondary leading-normal font-ui">
+                    {pattern}
+                  </span>
                   {onUsePattern && (
                     <button
                       type="button"
-                      title="Use pattern"
+                      title="Use in query"
                       onClick={() => onUsePattern(pattern)}
-                      className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-700"
+                      className="opacity-0 group-hover:opacity-100 bg-accent-dim border border-accent-line rounded-[3px] px-[5px] py-[2px] cursor-pointer text-accent flex items-center gap-[3px] shrink-0 transition-opacity duration-150 text-[10px] font-mono"
                     >
-                      <Play className="h-3 w-3" />
+                      <Play size={9} />
+                      <span>use</span>
                     </button>
                   )}
                 </li>
               ))}
             </ul>
-          </section>
+          </Section>
         )}
 
         {/* Attributes */}
-        <section className="px-6 py-4">
-          <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">
-            Attributes
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
+        <Section label={`Attributes (${entity.attributes.length})`}>
+          <div className="flex flex-wrap gap-[5px]">
             {entity.attributes.map((attr) => (
               <span
-                key={`${entity.name}:${attr}`}
-                className="px-2 py-0.5 text-[11px] font-mono text-slate-600 bg-slate-50 border border-slate-200 rounded"
+                key={attr}
+                className="px-2 py-[3px] font-mono text-xs text-secondary bg-elevated border border-line rounded"
               >
                 {attr}
               </span>
             ))}
           </div>
-        </section>
+        </Section>
       </div>
     </div>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-5 py-[14px] border-b border-line-dim">
+      <div className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted mb-2.5">
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function KeyRow({ label, pattern }: { label: string; pattern: string }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-[5px]">
+      <span className="font-mono text-[11px] font-semibold text-muted w-[22px] shrink-0">
+        {label}
+      </span>
+      <code className="font-mono text-xs bg-elevated border border-line rounded px-[9px] py-1 flex-1">
+        <PatternDisplay pattern={pattern} />
+      </code>
+    </div>
+  );
+}
+
+function GsiKeyRow({ prefix, pattern, attr }: { prefix: string; pattern: string; attr: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-[11px] text-muted w-[30px] shrink-0">
+        {prefix}
+      </span>
+      <code className="font-mono text-xs flex-1">
+        <PatternDisplay pattern={pattern} />
+      </code>
+      <span className="font-mono text-[11px] text-muted px-1.5 py-[2px] bg-canvas border border-line-dim rounded-[3px] shrink-0">
+        {attr}
+      </span>
+    </div>
+  );
+}
+
+/** Renders a DynamoDB key pattern with literal parts muted and <variable> parts in amber */
+export function PatternDisplay({ pattern }: { pattern: string }) {
+  const parts = pattern.split(/(<[^>]+>)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const isVar = part.startsWith('<') && part.endsWith('>');
+        return (
+          <span key={i} className={isVar ? 'pattern-variable' : 'pattern-literal'}>
+            {part}
+          </span>
+        );
+      })}
+    </>
   );
 }

@@ -20,6 +20,9 @@ interface QueryBuilderProps {
   onSubmit: (params: QueryParams) => void;
 }
 
+const inputCls =
+  'font-mono text-xs text-accent bg-canvas border border-line rounded py-[3px] px-[7px] min-w-[80px] outline-none transition-colors focus:border-accent';
+
 export function QueryBuilder({
   entity,
   tableName,
@@ -45,10 +48,7 @@ export function QueryBuilder({
   const parsedSk = parsePattern(activeSkPattern);
 
   const pkFilled = parsedPk.variables.every((v) => (pkValues[v] ?? '').trim() !== '');
-  const skFilled =
-    skOp === 'none' ||
-    parsedSk.variables.every((v) => (skValues[v] ?? '').trim() !== '');
-
+  const skFilled = skOp === 'none' || parsedSk.variables.every((v) => (skValues[v] ?? '').trim() !== '');
   const canSubmit = pkFilled && skFilled;
 
   function handleSubmit() {
@@ -65,63 +65,44 @@ export function QueryBuilder({
         skCondition = { op: 'Between', value: skValue, value2: parsedSk.resolve(sk2Values) };
       }
     } else if (skOp !== 'none' && parsedSk.variables.length === 0) {
-      // literal SK
       if (skOp === 'Eq') skCondition = { op: 'Eq', value: activeSkPattern };
       else if (skOp === 'BeginsWith') skCondition = { op: 'BeginsWith', value: activeSkPattern };
     }
 
     onSubmit({
       table: tableName,
-      pk_name: pkName,
-      pk_value: pkValue,
-      sk_name: skOp !== 'none' ? skName : undefined,
-      sk_condition: skCondition,
-      index_name: activeGsi ? activeGsi.name : undefined,
+      pkName: pkName,
+      pkValue: pkValue,
+      skName: skOp !== 'none' ? skName : undefined,
+      skCondition: skCondition,
+      indexName: activeGsi ? activeGsi.name : undefined,
     });
   }
 
   return (
-    <div className="space-y-4">
-      {/* GSI switcher */}
+    <div className="flex flex-col gap-4">
+      {/* Index selector tabs */}
       {entity.gsis.length > 0 && (
-        <div className="flex gap-0.5 overflow-x-auto border-b border-slate-200 pb-px">
-          <button
-            type="button"
-            onClick={() => onChangeTarget('base')}
-            className={`shrink-0 px-3 py-2 text-xs transition-colors -mb-px border-b-2 ${
-              selectedTarget === 'base'
-                ? 'border-slate-900 text-slate-900 font-medium'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            Base Table
-          </button>
+        <div className="flex gap-[2px] overflow-x-auto border-b border-line">
+          <IndexTab label="Base" active={selectedTarget === 'base'} onClick={() => onChangeTarget('base')} />
           {entity.gsis.map((gsi) => (
-            <button
+            <IndexTab
               key={gsi.name}
-              type="button"
+              label={gsi.name}
+              active={selectedTarget === gsi.name}
               onClick={() => onChangeTarget(gsi.name)}
-              className={`shrink-0 px-3 py-2 text-xs transition-colors -mb-px border-b-2 ${
-                selectedTarget === gsi.name
-                  ? 'border-slate-900 text-slate-900 font-medium'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-              }`}
-            >
-              {gsi.name}
-            </button>
+            />
           ))}
         </div>
       )}
 
-      {/* PK */}
-      <div className="space-y-1.5">
-        <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-          Partition Key
-        </label>
-        <div className="flex flex-wrap items-center gap-1 p-2 border border-slate-200 rounded bg-slate-50 min-h-[36px]">
+      {/* Partition Key */}
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel>Partition Key</FieldLabel>
+        <div className="flex flex-wrap items-center gap-1 py-1.5 px-2.5 bg-elevated border border-line rounded-md min-h-9">
           {parsedPk.segments.map((seg, i) =>
             seg.type === 'literal' ? (
-              <span key={i} className="font-mono text-xs text-slate-600">
+              <span key={i} className="pattern-literal text-xs">
                 {seg.value}
               </span>
             ) : (
@@ -131,28 +112,26 @@ export function QueryBuilder({
                 placeholder={seg.name}
                 value={pkValues[seg.name] ?? ''}
                 onChange={(e) => onChangePkValues({ ...pkValues, [seg.name]: e.target.value })}
-                className="font-mono text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 min-w-[80px] focus:outline-none focus:border-slate-500"
+                className={inputCls}
               />
             ),
           )}
         </div>
       </div>
 
-      {/* SK condition */}
-      <div className="space-y-1.5">
-        <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-          Sort Key Condition
-        </label>
-        <div className="flex gap-1">
+      {/* Sort Key Condition */}
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel>Sort Key</FieldLabel>
+        <div className="flex gap-1 flex-wrap">
           {(['none', 'Eq', 'BeginsWith', 'Between'] as const).map((op) => (
             <button
               key={op}
               type="button"
               onClick={() => onChangeSkOp(op)}
-              className={`px-2.5 py-1 text-xs rounded border transition-colors ${
+              className={`py-[3px] px-[9px] font-mono text-[11px] rounded border cursor-pointer transition-all ${
                 skOp === op
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
+                  ? 'border-accent bg-accent-dim text-accent'
+                  : 'border-line bg-transparent text-muted'
               }`}
             >
               {op === 'none' ? 'none' : op === 'Eq' ? '=' : op === 'BeginsWith' ? 'begins_with' : 'between'}
@@ -161,13 +140,13 @@ export function QueryBuilder({
         </div>
 
         {skOp !== 'none' && (
-          <div className="flex flex-wrap items-center gap-1 p-2 border border-slate-200 rounded bg-slate-50 min-h-[36px]">
+          <div className="flex flex-wrap items-center gap-1 py-1.5 px-2.5 bg-elevated border border-line rounded-md min-h-9">
             {parsedSk.variables.length === 0 ? (
-              <span className="font-mono text-xs text-slate-400">{activeSkPattern}</span>
+              <span className="pattern-literal text-xs">{activeSkPattern}</span>
             ) : (
               parsedSk.segments.map((seg, i) =>
                 seg.type === 'literal' ? (
-                  <span key={i} className="font-mono text-xs text-slate-600">
+                  <span key={i} className="pattern-literal text-xs">
                     {seg.value}
                   </span>
                 ) : (
@@ -177,7 +156,7 @@ export function QueryBuilder({
                     placeholder={seg.name}
                     value={skValues[seg.name] ?? ''}
                     onChange={(e) => onChangeSkValues({ ...skValues, [seg.name]: e.target.value })}
-                    className="font-mono text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 min-w-[80px] focus:outline-none focus:border-slate-500"
+                    className={inputCls}
                   />
                 ),
               )
@@ -187,11 +166,11 @@ export function QueryBuilder({
 
         {skOp === 'Between' && parsedSk.variables.length > 0 && (
           <>
-            <span className="block text-[10px] text-slate-400 pl-1">to</span>
-            <div className="flex flex-wrap items-center gap-1 p-2 border border-slate-200 rounded bg-slate-50 min-h-[36px]">
+            <span className="font-mono text-[10px] text-muted pl-[2px]">to</span>
+            <div className="flex flex-wrap items-center gap-1 py-1.5 px-2.5 bg-elevated border border-line rounded-md min-h-9">
               {parsedSk.segments.map((seg, i) =>
                 seg.type === 'literal' ? (
-                  <span key={i} className="font-mono text-xs text-slate-600">
+                  <span key={i} className="pattern-literal text-xs">
                     {seg.value}
                   </span>
                 ) : (
@@ -201,7 +180,7 @@ export function QueryBuilder({
                     placeholder={`${seg.name} (end)`}
                     value={sk2Values[seg.name] ?? ''}
                     onChange={(e) => onChangeSk2Values({ ...sk2Values, [seg.name]: e.target.value })}
-                    className="font-mono text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 min-w-[80px] focus:outline-none focus:border-slate-500"
+                    className={inputCls}
                   />
                 ),
               )}
@@ -210,15 +189,43 @@ export function QueryBuilder({
         )}
       </div>
 
-      {/* Submit */}
+      {/* Execute button */}
       <button
         type="button"
         disabled={!canSubmit}
         onClick={handleSubmit}
-        className="w-full py-2 text-sm font-medium rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-slate-900 text-white border-slate-900 hover:bg-slate-700 disabled:hover:bg-slate-900"
+        className={`py-2 px-4 font-mono text-xs font-semibold tracking-[0.05em] rounded-md border transition-all ${
+          canSubmit
+            ? 'bg-accent border-accent text-canvas cursor-pointer'
+            : 'bg-transparent border-line text-muted opacity-50 cursor-not-allowed'
+        }`}
       >
-        Execute
+        ▶ Execute
       </button>
     </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted">
+      {children}
+    </span>
+  );
+}
+
+function IndexTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`py-1.5 px-3 font-mono text-xs border-0 border-b-2 bg-transparent cursor-pointer transition-all -mb-px ${
+        active
+          ? 'font-semibold border-b-accent text-accent'
+          : 'font-normal border-b-transparent text-muted'
+      }`}
+    >
+      {label}
+    </button>
   );
 }

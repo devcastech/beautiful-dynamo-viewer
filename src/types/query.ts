@@ -5,16 +5,19 @@ export type SkCondition =
 
 export interface QueryParams {
   table: string;
-  pk_name: string;
-  pk_value: string;
-  sk_name?: string;
-  sk_condition?: SkCondition;
-  index_name?: string;
+  pkName: string;
+  pkValue: string;
+  skName?: string;
+  skCondition?: SkCondition;
+  indexName?: string;
+  limit?: number;
+  exclusiveStartKey?: Record<string, unknown>;
 }
 
 export interface QueryResult {
   status: 'idle' | 'loading' | 'success' | 'error';
   data: Record<string, unknown>[];
+  lastKey?: Record<string, unknown>;
   error?: string;
   durationMs?: number;
 }

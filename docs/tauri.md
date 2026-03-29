@@ -174,11 +174,25 @@ En debug (desarrollo) la deja visible para ver logs.
 
 ### `lib.rs` — inicialización del Client y registro de commands
 
+> **`mod` vs `use` — la diferencia más importante de este paso**
+>
+> `mod commands;` — declara que existe un módulo llamado `commands` cuyo código
+> está en `src/commands.rs`. Solo se escribe **una vez**, en `lib.rs`. No importa tipos,
+> solo registra el módulo en el árbol del crate.
+>
+> `use commands::algo;` — importa un tipo/función específico para usarlo sin escribir
+> la ruta completa. Se escribe en cualquier archivo que necesite ese tipo.
+>
+> No se combinan: `mod commands::{Algo}` **no existe en Rust** y da error de compilación.
+
 ```rust
 // src-tauri/src/lib.rs
-mod commands;
-mod error;
+mod commands;   // "existe src/commands.rs, regístralo como módulo"
+mod error;      // "existe src/error.rs, regístralo como módulo"
 
+// use es opcional en lib.rs — solo si usáramos Client o Mutex directamente
+// en este archivo. Los tipos que solo se usan en commands.rs no necesitan
+// ser importados aquí.
 use tokio::sync::Mutex;
 use aws_sdk_dynamodb::Client;
 
@@ -240,55 +254,94 @@ Referencia: https://v2.tauri.app/develop/state-management/
 
 ---
 
-## Paso 4 — `commands.rs`: structs y enums con serde
+## Paso 4 — `commands.rs`: structs, enums e imports
 
 ### Conceptos a leer primero
 
 - Enums con datos (mucho más expresivos que en TypeScript): https://doc.rust-lang.org/book/ch06-00-enums.html
 - `Option<T>` — Rust no tiene `null`, los valores opcionales son explícitos: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum-and-its-advantages-over-null-values
-- Derive macros: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
+- Módulos y cómo importar entre tus propios archivos: https://doc.rust-lang.org/book/ch07-00-managing-growing-projects-with-packages-crates-and-modules.html
 - Serde field attributes (`rename_all`, `tag`, `content`): https://serde.rs/field-attrs.html
 - Representaciones de enums en serde: https://serde.rs/enum-representations.html
 
-### `QueryParams` — espejo del tipo TypeScript
+### Cómo se conectan los archivos en Rust
+
+Antes de ver el código, hay que entender cómo se importa en Rust, porque es distinto a TypeScript.
+
+**En TypeScript** importas por ruta de archivo:
+```ts
+import { AppError } from './error'        // ruta relativa al archivo
+import { invoke }   from '@tauri-apps/api' // paquete externo
+```
+
+**En Rust** importas por ruta de módulo dentro del árbol del crate:
+```rust
+use crate::error::AppError   // "crate::" = este proyecto, luego módulo::Tipo
+use tokio::sync::Mutex       // crate externo (tokio), luego módulo::Tipo
+```
+
+El árbol de módulos se declara en `lib.rs` con `mod`. Si en `lib.rs` escribes `mod commands;`,
+Rust sabe que existe un módulo llamado `commands` cuyo código está en `src/commands.rs`.
+Desde cualquier otro archivo del mismo proyecto puedes importar cosas de ese módulo con
+`use crate::commands::QueryParams`.
+
+**Cómo se ve esto en los 4 archivos del proyecto:**
+
+```
+lib.rs          → declara los módulos con "mod error;" y "mod commands;"
+error.rs        → define AppError, importa solo crates externos
+commands.rs     → define structs/enums/functions, importa desde "crate::error" y crates externos
+main.rs         → llama lib::run(), no necesita imports propios
+```
+
+Los `use` van siempre **al principio del archivo**, fuera de cualquier función. Dentro de
+una función también se puede escribir `use`, pero es inusual y solo tiene sentido para
+imports muy locales.
+
+### `commands.rs` — el archivo completo hasta este punto
+
+Este es el estado del archivo al terminar el Paso 4. El Paso 5 agrega el cuerpo de `query_table`.
 
 ```rust
 // src-tauri/src/commands.rs
-use serde::{Deserialize, Serialize};
 
-// El #[serde(rename_all = "camelCase")] hace que el JSON use camelCase
-// mientras el código Rust usa snake_case. Ejemplo:
-//   Rust:  pk_name       → JSON: "pkName"
-//   Rust:  sk_condition  → JSON: "skCondition"
+// ── Imports de crates externos ───────────────────────────────────────────────
+use std::collections::HashMap;
+
+use aws_sdk_dynamodb::{Client, types::AttributeValue};
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+
+// ── Import desde este proyecto ────────────────────────────────────────────────
+// "crate::" = raíz de este proyecto (src-tauri/src/)
+// "crate::error" = el módulo definido en src-tauri/src/error.rs
+// "AppError" = el tipo que queremos usar desde ese módulo
+use crate::error::AppError;
+
+// ── Tipos de entrada ──────────────────────────────────────────────────────────
+
+// #[serde(rename_all = "camelCase")] convierte automáticamente entre
+// snake_case de Rust y camelCase del JSON que manda el frontend:
+//   Rust: pk_name       ↔  JSON: "pkName"
+//   Rust: sk_condition  ↔  JSON: "skCondition"
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryParams {
     pub table:        String,
-    pub pk_name:      String,         // e.g. "PK" o "GSI1PK"
-    pub pk_value:     String,         // e.g. "USER#abc123"
-    pub sk_name:      Option<String>, // None = no SK condition
+    pub pk_name:      String,          // "PK" para base table, "GSI1PK" para GSI1
+    pub pk_value:     String,          // "USER#abc123"
+    pub sk_name:      Option<String>,  // None = no hay condición de SK
     pub sk_condition: Option<SkCondition>,
-    pub index_name:   Option<String>, // e.g. "GSI1", None = base table
+    pub index_name:   Option<String>,  // "GSI1" | "GSI2" | None para base table
 }
-```
 
-**Por qué `Option<String>` y no solo `String`:**
-En Rust no existe `null`. Cuando un campo puede no estar presente, se envuelve en `Option`.
-`Option<String>` puede ser `Some("GSI1".to_string())` o `None`. Serde omite el campo del
-JSON si es `None` (con `#[serde(skip_serializing_if = "Option::is_none")]`) o lo
-deserializa como `None` si viene `null` o ausente en el JSON.
-
-### `SkCondition` — enum con datos
-
-```rust
-// El #[serde(tag = "op")] indica que el campo "op" del JSON determina el variante.
-// El #[serde(content = "value")] indica que el payload va en el campo "value".
-//
-// JSON que llega desde el frontend:
-//   { "op": "Eq",         "value": "ORDER#2024-01-15" }
-//   { "op": "BeginsWith", "value": "ORDER#" }
+// El JSON que llega desde el frontend para cada variante:
+//   { "op": "Eq",         "value": "ORDER" }
+//   { "op": "BeginsWith", "value": "SHIPMENT#" }
 //   { "op": "Between",    "value": { "from": "ORDER#2024-01", "to": "ORDER#2024-02" } }
-
+//
+// #[serde(tag = "op")]        → el campo "op" del JSON identifica el variante
+// #[serde(content = "value")] → el payload del variante va en el campo "value"
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", content = "value")]
 pub enum SkCondition {
@@ -297,77 +350,111 @@ pub enum SkCondition {
     Between(BetweenValues),
 }
 
+// Struct separado porque "Between" necesita dos valores.
+// #[serde(tag+content)] espera un solo campo "value" por variante — un struct
+// anidado resuelve eso limpiamente.
 #[derive(Debug, Deserialize)]
 pub struct BetweenValues {
-    pub from: String,  // e.g. "ORDER#2024-01-01"
-    pub to:   String,  // e.g. "ORDER#2024-01-31#ZZZZZZZ"
+    pub from: String,  // "ORDER#2024-01-01"
+    pub to:   String,  // "ORDER#2024-01-31#ZZZZZZZ"
 }
-```
 
-**Por qué un struct separado para `Between`:**
-`#[serde(tag = "op", content = "value")]` espera que el payload de cada variante quepa en
-un campo `"value"`. Para `Eq` y `BeginsWith` un `String` cabe directamente. Para `Between`
-se necesitan dos valores — un struct anidado es lo más limpio.
+// ── Tipo de salida ─────────────────────────────────────────────────────────────
 
-### `QueryResult` — lo que devuelve el command al frontend
-
-```rust
+// Este struct se serializa a JSON y es lo que recibe el frontend como
+// resultado del invoke('query_table', ...).
+// serde_json::Value es el equivalente de "any" en TypeScript para Rust.
 #[derive(Debug, Serialize)]
 pub struct QueryResult {
     pub items:     Vec<serde_json::Value>,
-    pub truncated: bool,   // true si se alcanzó el límite de páginas/items
     pub count:     usize,
+    pub truncated: bool,
+}
+
+// ── Commands ──────────────────────────────────────────────────────────────────
+
+// El cuerpo de query_table se agrega en el Paso 5.
+#[tauri::command]
+pub async fn query_table(
+    client: tauri::State<'_, Mutex<Client>>,
+    params: QueryParams,
+) -> Result<QueryResult, AppError> {
+    todo!() // placeholder — el compilador acepta esto, pero panics en runtime
+}
+
+// Estos se implementan en el Paso 7.
+#[tauri::command]
+pub async fn list_aws_profiles() -> Result<Vec<String>, AppError> {
+    todo!()
+}
+
+#[tauri::command]
+pub async fn set_aws_profile(
+    client: tauri::State<'_, Mutex<Client>>,
+    profile: String,
+    region: Option<String>,
+) -> Result<(), AppError> {
+    todo!()
 }
 ```
 
+**`todo!()`** es una macro de Rust que compila correctamente pero panics con el mensaje
+`"not yet implemented"` si se ejecuta. Permite dejar funciones como placeholder mientras
+construyes el resto, sin que el compilador se queje de funciones vacías.
+
+**Por qué `Option<String>` y no solo `String`:**
+En Rust no existe `null`. `Option<String>` es un enum con dos variantes: `Some(valor)` o
+`None`. Cuando el frontend no manda el campo (o manda `null`), serde lo deserializa como
+`None` automáticamente.
+
 ---
 
-## Paso 5 — El comando `query_table`
+## Paso 5 — El cuerpo de `query_table`
 
 ### Conceptos a leer primero
 
-- `match` expressions — el compilador fuerza exhaustividad: https://doc.rust-lang.org/book/ch06-02-match.html
-- El operador `?` para propagar errores sin `unwrap`: https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator
+- `match` expressions — el compilador fuerza que cubras todos los variantes: https://doc.rust-lang.org/book/ch06-02-match.html
+- El operador `?` para propagar errores sin escribir `match` o `unwrap`: https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator
 - `HashMap`: https://doc.rust-lang.org/std/collections/struct.HashMap.html
 
-### La firma del command
+### Qué es el "fluent builder" del SDK
+
+`client.query()` no ejecuta nada — devuelve un `QueryFluentBuilder`. Es un objeto que
+acumula configuración. Cada método (`.table_name(...)`, `.key_condition_expression(...)`,
+etc.) devuelve el mismo builder con ese parámetro agregado. Solo cuando llamas `.send().await`
+se hace la llamada real a DynamoDB.
+
+Docs: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/operation/query/builders/struct.QueryFluentBuilder.html
+
+### Reemplazar `todo!()` con la implementación real
+
+El archivo `commands.rs` ya tiene todos los imports del Paso 4. Solo reemplazas el cuerpo
+de la función `query_table`:
 
 ```rust
-use tokio::sync::Mutex;
-use aws_sdk_dynamodb::Client;
-use crate::error::AppError;
+// src-tauri/src/commands.rs  ← mismo archivo, solo el cuerpo de la función cambia
 
 #[tauri::command]
 pub async fn query_table(
     client: tauri::State<'_, Mutex<Client>>,
     params: QueryParams,
 ) -> Result<QueryResult, AppError> {
-    // ...
-}
-```
 
-Tauri docs sobre commands: https://v2.tauri.app/develop/calling-rust/
-
-### Construir la query paso a paso
-
-El SDK usa el patrón "fluent builder": `client.query()` devuelve un `QueryFluentBuilder`,
-y cada método devuelve el mismo builder. Se ejecuta con `.send().await`.
-
-```rust
-use std::collections::HashMap;
-use aws_sdk_dynamodb::types::AttributeValue;
-
-pub async fn query_table(
-    client: tauri::State<'_, Mutex<Client>>,
-    params: QueryParams,
-) -> Result<QueryResult, AppError> {
+    // .lock().await obtiene acceso exclusivo al Client.
+    // Devuelve un MutexGuard<Client> — cuando sale del scope se libera el lock.
+    // El `client` de aquí en adelante es el Client real, no el Mutex.
     let client = client.lock().await;
 
-    // --- 1. Construir el KeyConditionExpression y los mapas de atributos ---
+    // ── 1. Construir los mapas de expression ─────────────────────────────────
     //
-    // Siempre usar placeholders (#pk, #sk) en la expression y mapearlos
-    // a los nombres reales. DynamoDB tiene ~600 reserved words; si pk_name
-    // fuera "STATUS" (reserved word), la query fallaría sin el placeholder.
+    // DynamoDB tiene ~600 reserved words (STATUS, NAME, DATE, etc.).
+    // Si pk_name fuera "STATUS", la query fallaría con un error críptico.
+    // La solución: nunca usar los nombres reales directamente en la expression.
+    // Usar placeholders (#pk, #sk) y mapearlos por separado.
+    //
+    //   KeyConditionExpression:      "#pk = :pk"
+    //   ExpressionAttributeNames:    {"#pk": "GSI1PK"}    ← nombre real aquí
+    //   ExpressionAttributeValues:   {":pk": "USER#abc"}  ← valor aquí
 
     let mut attr_names: HashMap<String, String> = HashMap::new();
     let mut attr_values: HashMap<String, AttributeValue> = HashMap::new();
@@ -375,60 +462,50 @@ pub async fn query_table(
     attr_names.insert("#pk".to_string(), params.pk_name.clone());
     attr_values.insert(":pk".to_string(), AttributeValue::S(params.pk_value.clone()));
 
-    // Ejemplo real: query de órdenes de un usuario por GSI1
-    //   pk_name  = "GSI1PK"
-    //   pk_value = "USER#abc123"
-    // → KeyConditionExpression = "#pk = :pk"
-    // → ExpressionAttributeNames = {"#pk": "GSI1PK"}
-    // → ExpressionAttributeValues = {":pk": {"S": "USER#abc123"}}
+    // ── 2. Construir el KeyConditionExpression según la condición de SK ──────
+    //
+    // match en Rust es exhaustivo: si agregas un variante a SkCondition,
+    // el compilador te obliga a manejarlo aquí. No hay "forgot to handle".
 
-    let key_condition = match &params.sk_condition {
-        None => {
-            // Solo PK — válido en DynamoDB, retorna todos los items de esa partición
-            // Ejemplo: todos los registros de ORDER#<orderId> (OrderMeta + OrderItems + Shipments)
-            "#pk = :pk".to_string()
-        }
+    let key_condition: String = match &params.sk_condition {
 
+        // Sin condición de SK — retorna todos los items bajo esa PK.
+        // Ejemplo: Query PK=ORDER#abc → retorna OrderMeta + OrderItems + Shipments + History
+        None => "#pk = :pk".to_string(),
+
+        // SK exacto.
+        // Ejemplo: PK=ORDER#abc, SK=ORDER → retorna solo el OrderMeta
         Some(SkCondition::Eq(sk_val)) => {
             let sk_name = params.sk_name.as_deref().unwrap_or("SK");
+            //             ↑ as_deref() convierte Option<String> → Option<&str>
+            //               unwrap_or("SK") usa "SK" si es None
             attr_names.insert("#sk".to_string(), sk_name.to_string());
             attr_values.insert(":sk".to_string(), AttributeValue::S(sk_val.clone()));
-
-            // Ejemplo: obtener solo el OrderMeta de una orden
-            //   sk_name  = "SK"
-            //   sk_value = "ORDER"
-            // → "#pk = :pk AND #sk = :sk"
             "#pk = :pk AND #sk = :sk".to_string()
         }
 
+        // SK con prefijo.
+        // Ejemplo: PK=ORDER#abc, SK begins_with SHIPMENT# → todos los shipments
         Some(SkCondition::BeginsWith(sk_val)) => {
             let sk_name = params.sk_name.as_deref().unwrap_or("SK");
             attr_names.insert("#sk".to_string(), sk_name.to_string());
             attr_values.insert(":sk".to_string(), AttributeValue::S(sk_val.clone()));
-
-            // Ejemplo: listar todos los shipments de una orden
-            //   sk_name  = "SK"
-            //   sk_value = "SHIPMENT#"
-            // → "#pk = :pk AND begins_with(#sk, :sk)"
             "#pk = :pk AND begins_with(#sk, :sk)".to_string()
         }
 
+        // SK entre dos valores.
+        // Ejemplo: PK=USER#abc (GSI1PK), GSI1SK BETWEEN ORDER#2024-01 AND ORDER#2024-02#ZZZZZZZ
+        // El sufijo #ZZZZZZZ asegura que el límite superior incluya todos los IDs de ese día.
         Some(SkCondition::Between(range)) => {
             let sk_name = params.sk_name.as_deref().unwrap_or("SK");
             attr_names.insert("#sk".to_string(), sk_name.to_string());
-            attr_values.insert(":sk_from".to_string(), AttributeValue::S(range.from.clone()));
-            attr_values.insert(":sk_to".to_string(), AttributeValue::S(range.to.clone()));
-
-            // Ejemplo: órdenes de un usuario en rango de fechas por GSI1
-            //   sk_name  = "GSI1SK"
-            //   from     = "ORDER#2024-01-01"
-            //   to       = "ORDER#2024-01-31#ZZZZZZZ"  ← el ZZZZZZZ asegura el límite superior
-            // → "#pk = :pk AND #sk BETWEEN :sk_from AND :sk_to"
-            "#pk = :pk AND #sk BETWEEN :sk_from AND :sk_to".to_string()
+            attr_values.insert(":from".to_string(), AttributeValue::S(range.from.clone()));
+            attr_values.insert(":to".to_string(),   AttributeValue::S(range.to.clone()));
+            "#pk = :pk AND #sk BETWEEN :from AND :to".to_string()
         }
     };
 
-    // --- 2. Ensamblar el builder ---
+    // ── 3. Ensamblar y ejecutar el builder ───────────────────────────────────
 
     let mut builder = client
         .query()
@@ -437,26 +514,35 @@ pub async fn query_table(
         .set_expression_attribute_names(Some(attr_names))
         .set_expression_attribute_values(Some(attr_values));
 
-    // .set_index_name acepta Option<String> directamente — no necesita if let
+    // set_index_name acepta Option<String> directamente.
+    // Si params.index_name es None, DynamoDB usa la base table.
+    // Si es Some("GSI1"), DynamoDB usa ese índice.
     builder = builder.set_index_name(params.index_name);
 
-    // --- 3. Ejecutar con paginación (ver Paso 8) ---
-    // (por ahora, una sola página para iterar)
+    // .send().await hace la llamada real. Devuelve Result<QueryOutput, SdkError<QueryError>>.
+    // .map_err(AppError::from) convierte el SdkError en AppError::Dynamo via el From
+    // implementado en error.rs (ver Paso 9). El ? propaga el error si existe.
     let response = builder.send().await.map_err(AppError::from)?;
 
-    let raw_items: Vec<_> = response.items().to_vec();
-    let items: Vec<serde_json::Value> = serde_dynamo::from_items(raw_items)?;
+    // response.items() devuelve &[HashMap<String, AttributeValue>]
+    // .to_vec() clona eso a Vec para que serde_dynamo pueda consumirlo
+    let raw_items = response.items().to_vec();
+
+    // serde_dynamo::from_items convierte Vec<HashMap<String, AttributeValue>>
+    // a Vec<serde_json::Value> aplanando los wrappers S/N/Bool/etc.
+    // El ? propaga el error si hay un tipo que no puede convertirse.
+    let items: Vec<serde_json::Value> = serde_dynamo::from_items(raw_items)
+        .map_err(|e| AppError::Serialization(e.to_string()))?;
 
     Ok(QueryResult {
         count: items.len(),
         items,
-        truncated: false,
+        truncated: false, // la paginación real se agrega en el Paso 8
     })
 }
 ```
 
-Docs del builder: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/operation/query/builders/struct.QueryFluentBuilder.html
-`AttributeValue`: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/types/enum.AttributeValue.html
+`AttributeValue` docs: https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/types/enum.AttributeValue.html
 
 ---
 

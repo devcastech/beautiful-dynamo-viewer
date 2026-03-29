@@ -21,23 +21,21 @@ export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlay
   const [skValues, setSkValues] = useState<Record<string, string>>({});
   const [sk2Values, setSk2Values] = useState<Record<string, string>>({});
   const [queryResult, setQueryResult] = useState<QueryResult>({ status: 'idle', data: [] });
+  const [lastParams, setLastParams] = useState<QueryParams | null>(null);
+  const [prevKeys, setPrevKeys] = useState<(Record<string, unknown> | undefined)[]>([]);
+  const [currentStartKey, setCurrentStartKey] = useState<Record<string, unknown> | undefined>(undefined);
 
-  // Pre-fill from initialPattern (e.g. from "Use" button in EntityInspector)
   useEffect(() => {
     if (!initialPattern) return;
 
-    // Extract clause in last parens: "Some label (GSI1 PK=USER#<userId>)"
     const parenMatch = initialPattern.match(/\(([^)]+)\)$/);
     const clause = parenMatch ? parenMatch[1] : initialPattern;
 
-    // Detect index prefix
     const indexMatch = clause.match(/^(GSI\d+)\s+/i);
     const detectedGsi = indexMatch ? indexMatch[1].toUpperCase() : null;
     const clauseBody = indexMatch ? clause.slice(indexMatch[0].length) : clause;
 
-    // Parse PK=<value>
     const pkMatch = clauseBody.match(/PK=([^\s]+)/);
-    // Parse SK=<value> with optional begins_with prefix
     const beginsWith = /begins_with\s+SK=/.test(clauseBody);
     const skMatch = clauseBody.match(/SK=([^\s]+)/);
 
@@ -92,51 +90,111 @@ export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlay
     setQueryResult({ status: 'idle', data: [] });
   }, [initialPattern, entity]);
 
-  async function handleSubmit(params: QueryParams) {
+  async function fetchPage(params: QueryParams, startKey?: Record<string, unknown>) {
     setQueryResult({ status: 'loading', data: [] });
     const start = Date.now();
     try {
-      const data = await queryTable(params);
-      setQueryResult({ status: 'success', data, durationMs: Date.now() - start });
+      const { items, lastKey } = await queryTable({ ...params, exclusiveStartKey: startKey });
+      setQueryResult({ status: 'success', data: items, lastKey, durationMs: Date.now() - start });
     } catch (err) {
       setQueryResult({
         status: 'error',
         data: [],
-        error: err instanceof Error ? err.message : String(err),
+        error: err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err ? String((err as { message: unknown }).message) : String(err)),
       });
     }
   }
 
+  async function handleSubmit(params: QueryParams) {
+    setLastParams(params);
+    setPrevKeys([]);
+    setCurrentStartKey(undefined);
+    await fetchPage(params, undefined);
+  }
+
+  async function handleNextPage() {
+    if (!lastParams || !queryResult.lastKey) return;
+    setPrevKeys((prev) => [...prev, currentStartKey]);
+    setCurrentStartKey(queryResult.lastKey);
+    await fetchPage(lastParams, queryResult.lastKey);
+  }
+
+  async function handlePrevPage() {
+    if (!lastParams || prevKeys.length === 0) return;
+    const newPrevKeys = [...prevKeys];
+    const prevKey = newPrevKeys.pop();
+    setPrevKeys(newPrevKeys);
+    setCurrentStartKey(prevKey);
+    await fetchPage(lastParams, prevKey);
+  }
+
   if (!isTauriRuntime()) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 gap-2 text-center px-6">
-        <p className="text-sm font-medium text-slate-600">Desktop app only</p>
-        <p className="text-xs text-slate-400">
-          Query execution requires AWS credentials available only in the Tauri desktop app.
-        </p>
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Builder area (dimmed, non-interactive) */}
+        <div className="flex-1 p-5 overflow-y-auto opacity-40 pointer-events-none">
+          <QueryBuilder
+            entity={entity}
+            tableName={tableName}
+            selectedTarget={selectedTarget}
+            pkValues={pkValues}
+            skOp={skOp}
+            skValues={skValues}
+            sk2Values={sk2Values}
+            onChangeTarget={setSelectedTarget}
+            onChangePkValues={setPkValues}
+            onChangeSkOp={setSkOp}
+            onChangeSkValues={setSkValues}
+            onChangeSk2Values={setSk2Values}
+            onSubmit={handleSubmit}
+          />
+        </div>
+
+        {/* Notice */}
+        <div className="py-3 px-5 border-t border-line bg-surface flex items-center gap-2 shrink-0">
+          <span className="font-mono text-[11px] text-muted">
+            Query execution requires the Tauri desktop app with AWS credentials.
+          </span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 px-6 py-5 overflow-y-auto">
-      <QueryBuilder
-        entity={entity}
-        tableName={tableName}
-        selectedTarget={selectedTarget}
-        pkValues={pkValues}
-        skOp={skOp}
-        skValues={skValues}
-        sk2Values={sk2Values}
-        onChangeTarget={setSelectedTarget}
-        onChangePkValues={setPkValues}
-        onChangeSkOp={setSkOp}
-        onChangeSkValues={setSkValues}
-        onChangeSk2Values={setSk2Values}
-        onSubmit={handleSubmit}
-      />
-      <div className="border-t border-slate-100 pt-4">
-        <QueryResults result={queryResult} />
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Builder */}
+      <div className="p-5 border-b border-line shrink-0 overflow-y-auto max-h-[55%] bg-[rgba(12,14,20,0.55)]">
+        <QueryBuilder
+          entity={entity}
+          tableName={tableName}
+          selectedTarget={selectedTarget}
+          pkValues={pkValues}
+          skOp={skOp}
+          skValues={skValues}
+          sk2Values={sk2Values}
+          onChangeTarget={setSelectedTarget}
+          onChangePkValues={setPkValues}
+          onChangeSkOp={setSkOp}
+          onChangeSkValues={setSkValues}
+          onChangeSk2Values={setSk2Values}
+          onSubmit={handleSubmit}
+        />
+      </div>
+
+      {/* Results */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="py-1.5 px-5 border-b border-line-dim bg-[rgba(19,22,32,0.8)] shrink-0">
+          <span className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted">
+            Results
+          </span>
+        </div>
+        <div className="flex-1 overflow-hidden py-4 px-5 overflow-y-auto bg-[rgba(12,14,20,0.45)]">
+          <QueryResults
+            result={queryResult}
+            onNext={queryResult.lastKey ? handleNextPage : undefined}
+            onPrev={prevKeys.length > 0 ? handlePrevPage : undefined}
+          />
+        </div>
       </div>
     </div>
   );

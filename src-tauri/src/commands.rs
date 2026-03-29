@@ -194,7 +194,8 @@ pub async fn set_aws_profile(
 ) -> Result<(), AppError> {
     // Construir nuevo config con el perfil especificado
     println!("setting profile {}", profile);
-    let mut loader = aws_config::from_env().profile_name(&profile);
+    use aws_config::BehaviorVersion;
+    let mut loader = aws_config::defaults(BehaviorVersion::latest()).profile_name(&profile);
 
     if let Some(region_str) = region {
         // aws_sdk_dynamodb::config::Region es un newtype sobre String

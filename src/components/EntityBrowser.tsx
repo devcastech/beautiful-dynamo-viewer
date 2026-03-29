@@ -73,22 +73,40 @@ export function EntityBrowser({ groups, selectedEntityByGroup, onSelect }: Entit
               </button>
 
               {/* Entities */}
-              {!isCollapsed && group.entities.map((entity) => {
+              {!isCollapsed && group.entities.map((entity, entityIdx) => {
                 const isActive = selectedEntityName === entity.name;
+                const isLast = entityIdx === group.entities.length - 1;
                 return (
                   <button
                     key={entity.name}
                     type="button"
                     onClick={() => onSelect(group.id, entity.name)}
-                    className={`w-full flex items-center gap-2 py-[6px] pr-3 pl-[26px] border-0 border-l-2 cursor-pointer text-left transition-colors ${
-                      isActive
-                        ? 'bg-accent-dim'
-                        : 'border-l-transparent hover:bg-hovered'
+                    className={`w-full flex items-center gap-0 py-[5px] pr-3 border-0 border-l-2 cursor-pointer text-left transition-colors ${
+                      isActive ? 'bg-accent-dim' : 'border-l-transparent hover:bg-hovered'
                     }`}
                     style={isActive ? { borderLeftColor: accent } : undefined}
                   >
+                    {/* Tree lines */}
+                    <span className="relative shrink-0 w-[26px] self-stretch">
+                      {/* Vertical line (stop at mid for last item) */}
+                      <span
+                        className="absolute left-[14px] top-0 w-px bg-line-dim"
+                        style={{ bottom: isLast ? '50%' : '0' }}
+                      />
+                      {/* Horizontal branch */}
+                      <span className="absolute left-[14px] top-1/2 w-[10px] h-px bg-line-dim -translate-y-px" />
+                    </span>
+
+                    {/* SK pattern */}
+                    <span className="font-mono text-[10px] text-muted shrink-0 max-w-[45%] overflow-hidden text-ellipsis whitespace-nowrap">
+                      {renderPatternLabel(entity.sk, accent)}
+                    </span>
+
+                    {/* Separator */}
+                    <span className="mx-1.5 text-[10px] text-muted/40 shrink-0">·</span>
+
                     {/* Entity name */}
-                    <span className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-ui ${
+                    <span className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-ui ${
                       isActive ? 'font-semibold text-primary' : 'font-normal text-secondary'
                     }`}>
                       {entity.name}
@@ -96,8 +114,8 @@ export function EntityBrowser({ groups, selectedEntityByGroup, onSelect }: Entit
 
                     {/* GSI count badge */}
                     {entity.gsis.length > 0 && (
-                      <span className="font-mono text-[11px] px-1.5 py-[2px] rounded-[3px] bg-elevated text-muted border border-line shrink-0">
-                        {entity.gsis.length} GSI
+                      <span className="font-mono text-[10px] px-1 py-[1px] rounded-[3px] bg-elevated text-muted border border-line shrink-0 ml-1">
+                        {entity.gsis.length}G
                       </span>
                     )}
                   </button>

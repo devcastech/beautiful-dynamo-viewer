@@ -14,7 +14,13 @@ export const schemaData: SchemaData = {
           role: 'Ficha principal',
           priority: 1,
           gsis: [
-            { name: 'GSI1', pk: 'PRODUCTS', sk: 'PRODUCT#<productId>', pkAttr: 'GSI1PK', skAttr: 'GSI1SK' },
+            {
+              name: 'GSI1',
+              pk: 'PRODUCTS',
+              sk: 'PRODUCT#<productId>',
+              pkAttr: 'GSI1PK',
+              skAttr: 'GSI1SK',
+            },
             {
               name: 'GSI2',
               pk: 'CATEGORY#<category>',
@@ -22,7 +28,13 @@ export const schemaData: SchemaData = {
               pkAttr: 'GSI2PK',
               skAttr: 'GSI2SK',
             },
-            { name: 'GSI3', pk: 'REFERENCE#<reference>', sk: 'PRODUCT#<productId>', pkAttr: 'GSI3PK', skAttr: 'GSI3SK' },
+            {
+              name: 'GSI3',
+              pk: 'REFERENCE#<reference>',
+              sk: 'PRODUCT#<productId>',
+              pkAttr: 'GSI3PK',
+              skAttr: 'GSI3SK',
+            },
           ],
           attributes: [
             'id',
@@ -68,7 +80,13 @@ export const schemaData: SchemaData = {
           role: 'Ficha principal',
           priority: 1,
           gsis: [
-            { name: 'GSI1', pk: 'EMAIL#<email>', sk: 'USER#<userId>', pkAttr: 'GSI1PK', skAttr: 'GSI1SK' },
+            {
+              name: 'GSI1',
+              pk: 'EMAIL#<email>',
+              sk: 'USER#<userId>',
+              pkAttr: 'GSI1PK',
+              skAttr: 'GSI1SK',
+            },
             { name: 'GSI2', pk: 'USERS', sk: 'USER#<userId>', pkAttr: 'GSI2PK', skAttr: 'GSI2SK' },
           ],
           attributes: [
@@ -104,8 +122,20 @@ export const schemaData: SchemaData = {
           role: 'Caja maestra',
           priority: 1,
           gsis: [
-            { name: 'GSI1', pk: 'USER#<userId>', sk: 'ORDER#<date>#<orderId>', pkAttr: 'GSI1PK', skAttr: 'GSI1SK' },
-            { name: 'GSI2', pk: 'ORDERS', sk: 'STATUS#<status>#<createdAt>#<orderId>', pkAttr: 'GSI2PK', skAttr: 'GSI2SK' },
+            {
+              name: 'GSI1',
+              pk: 'USER#<userId>',
+              sk: 'ORDER#<date>#<orderId>',
+              pkAttr: 'GSI1PK',
+              skAttr: 'GSI1SK',
+            },
+            {
+              name: 'GSI2',
+              pk: 'ORDERS',
+              sk: 'STATUS#<status>#<createdAt>#<orderId>',
+              pkAttr: 'GSI2PK',
+              skAttr: 'GSI2SK',
+            },
           ],
           attributes: [
             'id',
@@ -171,7 +201,14 @@ export const schemaData: SchemaData = {
           role: 'Despacho',
           priority: 3,
           gsis: [],
-          attributes: ['orderId', 'shipmentNumber', 'dispatchedAt', 'dispatchedBy', 'items', 'createdAt'],
+          attributes: [
+            'orderId',
+            'shipmentNumber',
+            'dispatchedAt',
+            'dispatchedBy',
+            'items',
+            'createdAt',
+          ],
           description:
             'Registro de despacho parcial de una orden. El SK incluye timestamp + número secuencial para unicidad y ordenamiento natural. Múltiples shipments pueden existir por orden.',
           accessPatterns: [
@@ -239,3 +276,75 @@ export const schemaData: SchemaData = {
     },
   ],
 };
+
+export const schemaData_: SchemaData =  {
+   "tables": [
+     {
+       table: 'thedogfarm-dev', // production name from TABLE_NAME env var
+       story: 'Single-table design storing reservations, calendar occupancy days, and config records; reservations are queried via a GSI on the type attribute for admin listing.',
+       entities: [
+         {
+           name: 'Reservation',
+           pk: 'RESERVATION#<reservationId>',
+           sk: 'METADATA',
+           role: 'Ficha principal',
+           priority: 1,
+           gsis: [
+             {
+               name: 'AdminReservationsIndex',
+               pk: 'RESERVATION',
+               sk: 'DATE#<checkIn>#<reservationId>',
+               pkAttr: 'type',
+               skAttr: 'GSI1_SK',
+             },
+           ],
+           attributes: [
+             'PK', 'SK', 'id', 'createdAt', 'user',
+             'guestName', 'guestPhone',
+             'checkIn', 'checkOut', 'nights', 'guestsCount',
+             'totalPrice', 'status', 'paymentStatus', 'type',
+             'paymentMethod', 'specialRequests',
+             'plan', 'priceDetails', 'auditLog',
+             'GSI1_SK',
+           ],
+           description: 'One record per reservation. The GSI uses the literal string "RESERVATION" as its PK (stored in the `type` attribute) so all reservations can be listed in a single query. GSI1_SK encodes checkIn + id for date-ordered sorting. Status transitions (pending → confirmed / cancelled / completed) are tracked via an embedded auditLog array. Dates (checkIn / checkOut) are intentionally immutable after creation.',
+           accessPatterns: [
+             'Get reservation by ID — GetItem on PK=RESERVATION#<id>, SK=METADATA',
+             'List all reservations — Query AdminReservationsIndex where type = "RESERVATION", with optional client-side filters on status, paymentStatus, checkIn range, and upcoming flag',
+             'Update reservation status — UpdateItem on PK/SK setting status and appending to auditLog',
+             'Update reservation fields (guestName, guestPhone, guestsCount, totalPrice, paymentStatus, paymentMethod, specialRequests, plan, priceDetails) — UpdateItem on PK/SK appending to auditLog',
+           ],
+         },
+         {
+           name: 'CalendarDay',
+           pk: 'CALENDAR#<yearMonth>',
+           sk: 'DAY#<day>',
+           role: 'Día ocupado',
+           priority: 1,
+           gsis: [],
+           attributes: ['PK', 'SK', 'reservationId', 'type', 'createdAt'],
+           description: 'One record per occupied calendar day, grouped by YYYY-MM month partition. Written atomically alongside the parent Reservation via TransactWrite. Deleted (also via TransactWrite) when a reservation is cancelled. The reservationId attribute on each day links back to the owning reservation and is used as a ConditionExpression on delete to prevent accidental removal.',
+           accessPatterns: [
+             'Get all occupied days in a month — Query where PK = CALENDAR#<YYYY-MM>',
+             'Check specific dates for occupancy — Query by month partition then match day values in application code',
+             'Release dates on cancellation — TransactWrite Delete each DAY record with ConditionExpression reservationId = <id>, chunked in batches of 25',
+           ],
+         },
+         {
+           name: 'InventoryTemplate',
+           pk: 'CONFIG',
+           sk: 'INVENTORY_TEMPLATE',
+           role: 'Configuración global',
+           priority: 1,
+           gsis: [],
+           attributes: ['PK', 'SK', 'items', 'lastUpdated', 'updatedBy', 'version', 'type'],
+           description: 'Singleton config record holding the inventory checklist template. Full overwrite on every update (PutItem), so version and lastUpdated are relied on for optimistic history. No GSI needed — always accessed by exact key.',
+           accessPatterns: [
+             'Get inventory template — GetItem on PK=CONFIG, SK=INVENTORY_TEMPLATE',
+             'Overwrite inventory template — PutItem on PK=CONFIG, SK=INVENTORY_TEMPLATE',
+           ],
+         },
+       ],
+     },
+   ]
+ };

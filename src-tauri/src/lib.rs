@@ -8,7 +8,7 @@ use aws_config::BehaviorVersion;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let client = tauri::async_runtime::block_on(async {
-        let config = aws_config::defaults(BehaviorVersion::v2023_11_09())
+        let config = aws_config::defaults(BehaviorVersion::latest())
             .region("us-east-1")
             .load()
             .await;

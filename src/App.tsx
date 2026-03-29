@@ -67,7 +67,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-canvas overflow-hidden">
       {/* Top bar */}
-      <header className="flex items-center gap-4 px-4 h-11 bg-surface border-b border-line shrink-0">
+      <header className="flex items-center gap-4 px-4 h-11  shrink-0">
         {/* Brand */}
         <div className="flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -130,9 +130,9 @@ export default function App() {
       </header>
 
       {/* 3-column body */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0 gap-2 p-2">
         {/* Left: Entity Browser */}
-        <div className="w-[260px] shrink-0 border-r border-line bg-surface overflow-hidden flex flex-col">
+        <div className="w-[260px] shrink-0 border border-line bg-surface overflow-hidden flex flex-col rounded-2xl">
           <EntityBrowser
             groups={partitionGroups}
             selectedEntityByGroup={selectedEntityByGroup}
@@ -141,7 +141,7 @@ export default function App() {
         </div>
 
         {/* Center: Schema */}
-        <div className="flex-1 min-w-0 border-r border-line bg-canvas overflow-hidden flex flex-col">
+        <div className="flex-1 min-w-0 border border-line bg-canvas overflow-hidden flex flex-col rounded-2xl">
           <ColHeader label="SCHEMA" />
           <div className="flex-1 overflow-hidden">
             <EntityInspector
@@ -153,7 +153,7 @@ export default function App() {
         </div>
 
         {/* Right: Query Playground */}
-        <div className="dot-grid flex-1 min-w-0 overflow-hidden flex flex-col">
+        <div className="dot-grid flex-1 min-w-0 border border-line overflow-hidden flex flex-col rounded-2xl">
           <ColHeader label="QUERY" glassy />
           <div className="flex-1 overflow-hidden">
             <QueryPlayground

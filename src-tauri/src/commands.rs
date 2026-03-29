@@ -144,7 +144,7 @@ pub async fn query_table(
     // .send().await hace la llamada real. Devuelve Result<QueryOutput, SdkError<QueryError>>.
     let response = builder.send().await.map_err(|e| {
         println!("DynamoDB send error: {:?}", e);
-        AppError { message: e.to_string() }
+        AppError { message: format!("{:?}", e) }
     })?;
 
     let last_key: Option<serde_json::Value> = response

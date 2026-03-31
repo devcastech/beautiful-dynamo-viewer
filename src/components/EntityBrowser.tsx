@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PartitionGroup } from '../types/schema.ts';
 import { getPartitionChipLabel } from '../utils/warehouse.ts';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react';
 
 // Accent colors for partition group headers (deterministic by index)
 const GROUP_ACCENTS = [
@@ -17,9 +17,19 @@ interface EntityBrowserProps {
   groups: PartitionGroup[];
   selectedEntityByGroup: Record<string, string>;
   onSelect: (groupId: string, entityName: string) => void;
+  onAddEntity?: (partitionKey: string) => void;
+  onEditEntity?: (groupId: string, entityName: string) => void;
+  onDeleteEntity?: (entityName: string) => void;
 }
 
-export function EntityBrowser({ groups, selectedEntityByGroup, onSelect }: EntityBrowserProps) {
+export function EntityBrowser({
+  groups,
+  selectedEntityByGroup,
+  onSelect,
+  onAddEntity,
+  onEditEntity,
+  onDeleteEntity,
+}: EntityBrowserProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   function toggleGroup(id: string) {
@@ -31,10 +41,20 @@ export function EntityBrowser({ groups, selectedEntityByGroup, onSelect }: Entit
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Column header */}
-      <div className="px-4 py-2 border-b border-line bg-surface shrink-0">
+      <div className="px-4 py-2 border-b border-line bg-surface shrink-0 flex items-center justify-between">
         <span className="font-mono text-[11px] font-semibold tracking-[0.1em] text-muted uppercase">
           ENTITIES
         </span>
+        {onAddEntity && (
+          <button
+            type="button"
+            title="Add entity"
+            onClick={() => onAddEntity('')}
+            className="text-muted hover:text-accent bg-transparent border-0 cursor-pointer p-0.5 rounded transition-colors"
+          >
+            <Plus size={12} />
+          </button>
+        )}
       </div>
 
       {/* Groups list */}
@@ -47,83 +67,149 @@ export function EntityBrowser({ groups, selectedEntityByGroup, onSelect }: Entit
           return (
             <div key={group.id}>
               {/* Group header */}
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.id)}
-                className={`w-full flex items-center gap-[7px] py-[7px] px-3 bg-transparent border-0 ${groupIdx > 0 ? 'border-t border-t-line-dim' : ''} cursor-pointer text-left transition-colors hover:bg-hovered`}
+              <div
+                className={`group flex items-center gap-[7px] py-[7px] px-3 ${groupIdx > 0 ? 'border-t border-t-line-dim' : ''}`}
               >
-                {/* Collapse arrow */}
-                <ChevronDown width={14} height={14} className={`text-muted inline-block leading-none transition-transform duration-150 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}/>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className="flex items-center gap-[7px] flex-1 min-w-0 bg-transparent border-0 cursor-pointer text-left transition-colors hover:bg-hovered rounded"
+                >
+                  <ChevronDown
+                    width={14}
+                    height={14}
+                    className={`text-muted inline-block leading-none transition-transform duration-150 shrink-0 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                  />
+                  <span
+                    className="w-[6px] h-[6px] rounded-full shrink-0"
+                    style={{ background: accent }}
+                  />
+                  <span className="font-mono text-[11px] text-secondary flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                    {renderPatternLabel(label, accent)}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted shrink-0">
+                    {group.entities.length}
+                  </span>
+                </button>
 
-                {/* Color dot */}
-                <span
-                  className="w-[6px] h-[6px] rounded-full shrink-0"
-                  style={{ background: accent }}
-                />
-
-                {/* PK pattern */}
-                <span className="font-mono text-[11px] text-secondary flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                  {renderPatternLabel(label, accent)}
-                </span>
-
-                {/* Entity count */}
-                <span className="font-mono text-[11px] text-muted shrink-0">
-                  {group.entities.length}
-                </span>
-              </button>
+                {/* Add entity to this partition group */}
+                {onAddEntity && (
+                  <button
+                    type="button"
+                    title="Add entity with this partition key"
+                    onClick={() => onAddEntity(group.partitionKey)}
+                    className="opacity-0 group-hover:opacity-100 text-muted hover:text-accent bg-transparent border-0 cursor-pointer p-0.5 rounded transition-opacity"
+                  >
+                    <Plus size={12} />
+                  </button>
+                )}
+              </div>
 
               {/* Entities */}
-              {!isCollapsed && group.entities.map((entity, entityIdx) => {
-                const isActive = selectedEntityName === entity.name;
-                const isLast = entityIdx === group.entities.length - 1;
-                return (
-                  <button
-                    key={entity.name}
-                    type="button"
-                    onClick={() => onSelect(group.id, entity.name)}
-                    className={`w-full flex items-center gap-0 py-[5px] pr-3 border-0 border-l-2 cursor-pointer text-left transition-colors ${
-                      isActive ? 'bg-accent-dim' : 'border-l-transparent hover:bg-hovered'
-                    }`}
-                    style={isActive ? { borderLeftColor: accent } : undefined}
-                  >
-                    {/* Tree lines */}
-                    <span className="relative shrink-0 w-[26px] self-stretch">
-                      {/* Vertical line (stop at mid for last item) */}
-                      <span
-                        className="absolute left-[14px] top-0 w-px bg-line-dim"
-                        style={{ bottom: isLast ? '50%' : '0' }}
-                      />
-                      {/* Horizontal branch */}
-                      <span className="absolute left-[14px] top-1/2 w-[10px] h-px bg-line-dim -translate-y-px" />
-                    </span>
+              {!isCollapsed &&
+                group.entities.map((entity, entityIdx) => {
+                  const isActive = selectedEntityName === entity.name;
+                  const isLast = entityIdx === group.entities.length - 1;
+                  return (
+                    <div
+                      key={entity.name}
+                      className={`group/entity flex items-center gap-0 border-l-2 transition-colors ${
+                        isActive
+                          ? 'bg-accent-dim'
+                          : 'border-l-transparent hover:bg-hovered'
+                      }`}
+                      style={isActive ? { borderLeftColor: accent } : undefined}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelect(group.id, entity.name)}
+                        className="flex items-center gap-0 py-[5px] flex-1 min-w-0 bg-transparent border-0 cursor-pointer text-left"
+                      >
+                        {/* Tree lines */}
+                        <span className="relative shrink-0 w-[26px] self-stretch">
+                          <span
+                            className="absolute left-[14px] top-0 w-px bg-line-dim"
+                            style={{ bottom: isLast ? '50%' : '0' }}
+                          />
+                          <span className="absolute left-[14px] top-1/2 w-[10px] h-px bg-line-dim -translate-y-px" />
+                        </span>
 
-                    {/* SK pattern */}
-                    <span className="font-mono text-[10px] text-muted shrink-0 max-w-[45%] overflow-hidden text-ellipsis whitespace-nowrap">
-                      {renderPatternLabel(entity.sk, accent)}
-                    </span>
+                        {/* SK pattern */}
+                        <span className="font-mono text-[10px] text-muted shrink-0 max-w-[45%] overflow-hidden text-ellipsis whitespace-nowrap">
+                          {renderPatternLabel(entity.sk, accent)}
+                        </span>
 
-                    {/* Separator */}
-                    <span className="mx-1.5 text-[10px] text-muted/40 shrink-0">·</span>
+                        {/* Separator */}
+                        <span className="mx-1.5 text-[10px] text-muted/40 shrink-0">·</span>
 
-                    {/* Entity name */}
-                    <span className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-ui ${
-                      isActive ? 'font-semibold text-primary' : 'font-normal text-secondary'
-                    }`}>
-                      {entity.name}
-                    </span>
+                        {/* Entity name */}
+                        <span
+                          className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-ui ${
+                            isActive
+                              ? 'font-semibold text-primary'
+                              : 'font-normal text-secondary'
+                          }`}
+                        >
+                          {entity.name}
+                        </span>
 
-                    {/* GSI count badge */}
-                    {entity.gsis.length > 0 && (
-                      <span className="font-mono text-[10px] px-1 py-[1px] rounded-[3px] bg-elevated text-muted border border-line shrink-0 ml-1">
-                        {entity.gsis.length}G
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                        {/* GSI count badge */}
+                        {entity.gsis.length > 0 && (
+                          <span className="font-mono text-[10px] px-1 py-[1px] rounded-[3px] bg-elevated text-muted border border-line shrink-0 ml-1">
+                            {entity.gsis.length}G
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Edit / delete actions (visible on hover) */}
+                      {(onEditEntity || onDeleteEntity) && (
+                        <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover/entity:opacity-100 transition-opacity shrink-0">
+                          {onEditEntity && (
+                            <button
+                              type="button"
+                              title="Edit entity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditEntity(group.id, entity.name);
+                              }}
+                              className="text-muted hover:text-accent bg-transparent border-0 cursor-pointer p-0.5 rounded transition-colors"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                          )}
+                          {onDeleteEntity && (
+                            <button
+                              type="button"
+                              title="Delete entity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEntity(entity.name);
+                              }}
+                              className="text-muted hover:text-red-400 bg-transparent border-0 cursor-pointer p-0.5 rounded transition-colors"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           );
         })}
+
+        {/* Empty state */}
+        {groups.length === 0 && (
+          <div className="px-4 py-6 text-center text-muted text-xs font-ui">
+            No entities yet.
+            {onAddEntity && (
+              <span className="block mt-1 text-muted/60">
+                Use + in the schema header to add one.
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -131,7 +217,6 @@ export function EntityBrowser({ groups, selectedEntityByGroup, onSelect }: Entit
 
 /** Render a partition key pattern with {vars} highlighted in accent color */
 function renderPatternLabel(label: string, accent: string) {
-  // label uses {variable} notation from getPartitionChipLabel
   const parts = label.split(/(\{[^}]+\})/g);
   return (
     <span>

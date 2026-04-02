@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { Check, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
-import type { Entity, GSI } from '../types/schema.ts';
+import type { Entity, GSI, SavedQuery } from '../types/schema.ts';
 
 interface EntityInspectorProps {
   entity: Entity;
   editMode?: boolean;
   isNew?: boolean;
-  onUsePattern?: (pattern: string) => void;
+  onRunQuery?: (query: SavedQuery) => void;
   onEnterEdit?: () => void;
   onSave?: (entity: Entity) => void;
   onCancelEdit?: () => void;
@@ -17,7 +17,7 @@ export function EntityInspector({
   entity,
   editMode = false,
   isNew = false,
-  onUsePattern,
+  onRunQuery,
   onEnterEdit,
   onSave,
   onCancelEdit,
@@ -25,7 +25,6 @@ export function EntityInspector({
 }: EntityInspectorProps) {
   const [draft, setDraft] = useState<Entity>(entity);
   const [newAttr, setNewAttr] = useState('');
-  const [newPattern, setNewPattern] = useState('');
 
   function set<K extends keyof Entity>(key: K, value: Entity[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -45,20 +44,6 @@ export function EntityInspector({
   }
   function removeAttr(i: number) {
     set('attributes', draft.attributes.filter((_, idx) => idx !== i));
-  }
-
-  // --- access pattern helpers ---
-  function addPattern() {
-    const v = newPattern.trim();
-    if (!v) return;
-    set('accessPatterns', [...draft.accessPatterns, v]);
-    setNewPattern('');
-  }
-  function removePattern(i: number) {
-    set('accessPatterns', draft.accessPatterns.filter((_, idx) => idx !== i));
-  }
-  function updatePattern(i: number, v: string) {
-    set('accessPatterns', draft.accessPatterns.map((p, idx) => (idx === i ? v : p)));
   }
 
   // --- GSI helpers ---
@@ -167,37 +152,30 @@ export function EntityInspector({
             </button>
           </EditSection>
 
-          {/* Access Patterns */}
-          <EditSection label="Access Patterns">
-            <div className="flex flex-col gap-1">
-              {draft.accessPatterns.map((p, i) => (
-                <div key={i} className="flex items-start gap-1">
-                  <span className="font-mono text-[11px] text-muted w-[18px] text-right pt-[5px] shrink-0">{i + 1}.</span>
-                  <input
-                    value={p}
-                    onChange={(e) => updatePattern(i, e.target.value)}
-                    className={`${INPUT} flex-1 text-[12px]`}
-                    spellCheck={false}
-                  />
-                  <button type="button" onClick={() => removePattern(i)} className="text-muted hover:text-red-400 bg-transparent border-0 cursor-pointer p-1 transition-colors shrink-0">
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-1 mt-2">
-              <input
-                value={newPattern}
-                onChange={(e) => setNewPattern(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addPattern(); }}
-                placeholder="Describe an access pattern…"
-                className={`${INPUT} flex-1 text-[12px]`}
-                spellCheck={false}
-              />
-              <button type="button" onClick={addPattern} className={BTN_GHOST}>
-                <Plus size={11} />
-              </button>
-            </div>
+          {/* Saved Queries (edit: rename / delete only — create from QueryBuilder) */}
+          <EditSection label="Saved Queries">
+            {draft.savedQueries.length === 0 ? (
+              <p className="text-[11px] text-muted/60 font-ui">
+                No saved queries yet. Build a query and use "Save as…" to add one.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {draft.savedQueries.map((q, i) => (
+                  <div key={q.id} className="flex items-center gap-1">
+                    <span className="font-mono text-[10px] text-muted w-[18px] text-right shrink-0">{i + 1}.</span>
+                    <input
+                      value={q.name}
+                      onChange={(e) => set('savedQueries', draft.savedQueries.map((sq, idx) => idx === i ? { ...sq, name: e.target.value } : sq))}
+                      className={`${INPUT} flex-1 text-[12px]`}
+                      spellCheck={false}
+                    />
+                    <button type="button" onClick={() => set('savedQueries', draft.savedQueries.filter((_, idx) => idx !== i))} className="text-muted hover:text-red-400 bg-transparent border-0 cursor-pointer p-1 transition-colors shrink-0">
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </EditSection>
 
           {/* Attributes */}
@@ -287,30 +265,35 @@ export function EntityInspector({
           </Section>
         )}
 
-        {/* Access Patterns */}
-        {entity.accessPatterns.length > 0 && (
-          <Section label="Access Patterns">
+        {/* Saved Queries */}
+        {entity.savedQueries.length > 0 && (
+          <Section label="Saved Queries">
             <ul className="m-0 p-0 list-none flex flex-col gap-[2px]">
-              {entity.accessPatterns.map((pattern, index) => (
+              {entity.savedQueries.map((query, index) => (
                 <li
-                  key={index}
-                  className={`group flex items-start gap-2 px-2 py-[5px] rounded transition-colors hover:bg-elevated ${onUsePattern ? 'cursor-pointer' : 'cursor-default'}`}
+                  key={query.id}
+                  className="group flex items-center gap-2 px-2 py-[5px] rounded transition-colors hover:bg-elevated"
                 >
-                  <span className="font-mono text-[11px] text-muted min-w-[18px] text-right pt-px shrink-0">
+                  <span className="font-mono text-[11px] text-muted min-w-[18px] text-right shrink-0">
                     {index + 1}.
                   </span>
                   <span className="flex-1 text-[13px] text-secondary leading-normal font-ui">
-                    {pattern}
+                    {query.name}
                   </span>
-                  {onUsePattern && (
+                  {query.target !== 'base' && (
+                    <span className="font-mono text-[9px] px-[5px] py-[1px] rounded-[3px] border border-accent/30 text-accent bg-accent-dim shrink-0">
+                      {query.target}
+                    </span>
+                  )}
+                  {onRunQuery && (
                     <button
                       type="button"
-                      title="Use in query"
-                      onClick={() => onUsePattern(pattern)}
+                      title="Run query"
+                      onClick={() => onRunQuery(query)}
                       className="opacity-0 group-hover:opacity-100 bg-accent-dim border border-accent-line rounded-[3px] px-[5px] py-[2px] cursor-pointer text-accent flex items-center gap-[3px] shrink-0 transition-opacity duration-150 text-[10px] font-mono"
                     >
                       <Play size={9} />
-                      <span>use</span>
+                      <span>run</span>
                     </button>
                   )}
                 </li>

@@ -1,5 +1,17 @@
 import type { ComponentType } from 'react';
 
+export type SkOp = 'Eq' | 'BeginsWith' | 'Between' | 'none';
+
+export interface SavedQuery {
+  id: string;
+  name: string;
+  target: 'base' | string;  // 'base' or GSI name
+  pkValues: Record<string, string>;
+  skOp: SkOp;
+  skValues: Record<string, string>;
+  sk2Values: Record<string, string>;
+}
+
 export interface GSI {
   name: string;
   pk: string;
@@ -17,7 +29,7 @@ export interface Entity {
   role: string;
   priority: number;
   description: string;
-  accessPatterns: string[];
+  savedQueries: SavedQuery[];
 }
 
 export interface DynamoTable {

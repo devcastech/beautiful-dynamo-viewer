@@ -1,6 +1,8 @@
 // Re-export all types from the domain layer.
 // Import from here in UI components to avoid coupling to domain paths.
 export type {
+  SkOp,
+  SavedQuery,
   GSI,
   Entity,
   DynamoTable,

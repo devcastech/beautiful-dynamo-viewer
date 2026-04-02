@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react';
-import { parsePattern } from '../utils/patternParser.ts';
 import { isTauriRuntime, queryTable } from '../lib/dynamo.ts';
 import { QueryBuilder } from './QueryBuilder.tsx';
 import { QueryResults } from './QueryResults.tsx';
-import type { Entity } from '../types/schema.ts';
+import type { Entity, SavedQuery, SkOp } from '../types/schema.ts';
 import type { QueryParams, QueryResult } from '../types/query.ts';
-
-type SkOp = 'Eq' | 'BeginsWith' | 'Between' | 'none';
 
 interface QueryPlaygroundProps {
   entity: Entity;
   tableName: string;
-  initialPattern?: string;
+  initialQuery?: SavedQuery | null;
+  onSaveQuery?: (query: SavedQuery) => void;
 }
 
-export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlaygroundProps) {
+export function QueryPlayground({ entity, tableName, initialQuery, onSaveQuery }: QueryPlaygroundProps) {
   const [selectedTarget, setSelectedTarget] = useState<'base' | string>('base');
   const [pkValues, setPkValues] = useState<Record<string, string>>({});
   const [skOp, setSkOp] = useState<SkOp>('none');
@@ -25,70 +23,28 @@ export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlay
   const [prevKeys, setPrevKeys] = useState<(Record<string, unknown> | undefined)[]>([]);
   const [currentStartKey, setCurrentStartKey] = useState<Record<string, unknown> | undefined>(undefined);
 
+  // Load from a SavedQuery
   useEffect(() => {
-    if (!initialPattern) return;
-
-    const parenMatch = initialPattern.match(/\(([^)]+)\)$/);
-    const clause = parenMatch ? parenMatch[1] : initialPattern;
-
-    const indexMatch = clause.match(/^(GSI\d+)\s+/i);
-    const detectedGsi = indexMatch ? indexMatch[1].toUpperCase() : null;
-    const clauseBody = indexMatch ? clause.slice(indexMatch[0].length) : clause;
-
-    const pkMatch = clauseBody.match(/PK=([^\s]+)/);
-    const beginsWith = /begins_with\s+SK=/.test(clauseBody);
-    const skMatch = clauseBody.match(/SK=([^\s]+)/);
-
-    if (detectedGsi && entity.gsis.some((g) => g.name === detectedGsi)) {
-      setSelectedTarget(detectedGsi);
-      const gsi = entity.gsis.find((g) => g.name === detectedGsi)!;
-
-      if (pkMatch) {
-        const parsed = parsePattern(gsi.pk);
-        const vals: Record<string, string> = {};
-        const parts = pkMatch[1].split('#');
-        let varIdx = 0;
-        parsed.segments.forEach((seg) => {
-          if (seg.type === 'variable' && parts[varIdx] !== undefined) {
-            vals[seg.name] = parts[varIdx];
-            varIdx++;
-          }
-        });
-        setPkValues(vals);
-      }
-
-      if (skMatch) {
-        setSkOp(beginsWith ? 'BeginsWith' : 'Eq');
-        const parsed = parsePattern(gsi.sk);
-        const vals: Record<string, string> = {};
-        const parts = skMatch[1].split('#');
-        let varIdx = 0;
-        parsed.segments.forEach((seg) => {
-          if (seg.type === 'variable' && parts[varIdx] !== undefined) {
-            vals[seg.name] = parts[varIdx];
-            varIdx++;
-          }
-        });
-        setSkValues(vals);
-      } else {
-        setSkOp('none');
-        setSkValues({});
-      }
-    } else {
-      setSelectedTarget('base');
-      if (pkMatch) {
-        const parsed = parsePattern(entity.pk);
-        const vals: Record<string, string> = {};
-        parsed.segments.forEach((seg) => {
-          if (seg.type === 'variable') vals[seg.name] = '';
-        });
-        setPkValues(vals);
-      }
-    }
-
-    setSk2Values({});
+    if (!initialQuery) return;
+    setSelectedTarget(initialQuery.target);
+    setPkValues(initialQuery.pkValues);
+    setSkOp(initialQuery.skOp);
+    setSkValues(initialQuery.skValues);
+    setSk2Values(initialQuery.sk2Values);
     setQueryResult({ status: 'idle', data: [] });
-  }, [initialPattern, entity]);
+  }, [initialQuery]);
+
+  function handleSaveQuery(name: string) {
+    onSaveQuery?.({
+      id: crypto.randomUUID(),
+      name,
+      target: selectedTarget,
+      pkValues: { ...pkValues },
+      skOp,
+      skValues: { ...skValues },
+      sk2Values: { ...sk2Values },
+    });
+  }
 
   async function fetchPage(params: QueryParams, startKey?: Record<string, unknown>) {
     setQueryResult({ status: 'loading', data: [] });
@@ -100,7 +56,7 @@ export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlay
       setQueryResult({
         status: 'error',
         data: [],
-        error: err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err ? String((err as { message: unknown }).message) : String(err)),
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }
@@ -128,29 +84,29 @@ export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlay
     await fetchPage(lastParams, prevKey);
   }
 
+  const builder = (
+    <QueryBuilder
+      entity={entity}
+      tableName={tableName}
+      selectedTarget={selectedTarget}
+      pkValues={pkValues}
+      skOp={skOp}
+      skValues={skValues}
+      sk2Values={sk2Values}
+      onChangeTarget={setSelectedTarget}
+      onChangePkValues={setPkValues}
+      onChangeSkOp={setSkOp}
+      onChangeSkValues={setSkValues}
+      onChangeSk2Values={setSk2Values}
+      onSubmit={handleSubmit}
+      onSaveQuery={onSaveQuery ? handleSaveQuery : undefined}
+    />
+  );
+
   if (!isTauriRuntime()) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        {/* Builder area (dimmed, non-interactive) */}
-        <div className="flex-1 p-5 overflow-y-auto opacity-40 pointer-events-none">
-          <QueryBuilder
-            entity={entity}
-            tableName={tableName}
-            selectedTarget={selectedTarget}
-            pkValues={pkValues}
-            skOp={skOp}
-            skValues={skValues}
-            sk2Values={sk2Values}
-            onChangeTarget={setSelectedTarget}
-            onChangePkValues={setPkValues}
-            onChangeSkOp={setSkOp}
-            onChangeSkValues={setSkValues}
-            onChangeSk2Values={setSk2Values}
-            onSubmit={handleSubmit}
-          />
-        </div>
-
-        {/* Notice */}
+        <div className="flex-1 p-5 overflow-y-auto opacity-40 pointer-events-none">{builder}</div>
         <div className="py-3 px-5 border-t border-line bg-surface flex items-center gap-2 shrink-0">
           <span className="font-mono text-[11px] text-muted">
             Query execution requires the Tauri desktop app with AWS credentials.
@@ -162,26 +118,9 @@ export function QueryPlayground({ entity, tableName, initialPattern }: QueryPlay
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Builder */}
       <div className="p-5 border-b border-line shrink-0 overflow-y-auto max-h-[55%] bg-[rgba(12,14,20,0.55)]">
-        <QueryBuilder
-          entity={entity}
-          tableName={tableName}
-          selectedTarget={selectedTarget}
-          pkValues={pkValues}
-          skOp={skOp}
-          skValues={skValues}
-          sk2Values={sk2Values}
-          onChangeTarget={setSelectedTarget}
-          onChangePkValues={setPkValues}
-          onChangeSkOp={setSkOp}
-          onChangeSkValues={setSkValues}
-          onChangeSk2Values={setSk2Values}
-          onSubmit={handleSubmit}
-        />
+        {builder}
       </div>
-
-      {/* Results */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="py-1.5 px-5 border-b border-line-dim bg-[rgba(19,22,32,0.8)] shrink-0">
           <span className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted">

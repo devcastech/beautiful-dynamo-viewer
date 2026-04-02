@@ -7,7 +7,7 @@ import { schemaData } from "./data/schema.ts";
 import { memoryAdapter } from "./adapters/storage/memoryAdapter.ts";
 import { useSchemaStore } from "./hooks/useSchemaStore.ts";
 import { buildPartitionGroups } from "./utils/warehouse.ts";
-import type { Entity } from "./types/schema.ts";
+import type { Entity, SavedQuery } from "./types/schema.ts";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { Check, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 
@@ -27,7 +27,7 @@ export default function App() {
   const store = useSchemaStore(repo);
 
   const [selectedEntityByGroup, setSelectedEntityByGroup] = useState<Record<string, string>>({});
-  const [queryPattern, setQueryPattern] = useState<string | undefined>(undefined);
+  const [activeQuery, setActiveQuery] = useState<SavedQuery | null>(null);
   const [awsProfiles, setAwsProfiles] = useState<string[]>([]);
   const [selectedAwsProfile, setSelectedAwsProfile] = useState<string | undefined>(undefined);
   const [isAwsLoginInProgress, setIsAwsLoginInProgress] = useState<boolean>(false);
@@ -56,14 +56,14 @@ export default function App() {
   const isEditMode = pendingNewEntity !== null || inspectorEditMode;
 
   const totalGsis = activeSchema?.entities.reduce((t, e) => t + e.gsis.length, 0) ?? 0;
-  const totalPatterns = activeSchema?.entities.reduce((t, e) => t + e.accessPatterns.length, 0) ?? 0;
+  const totalPatterns = activeSchema?.entities.reduce((t, e) => t + e.savedQueries.length, 0) ?? 0;
 
   // ---- Schema handlers ----
   function handleSelectSchema(idx: number) {
     startTransition(() => {
       store.setActiveIdx(idx);
       setSelectedEntityByGroup({});
-      setQueryPattern(undefined);
+      setActiveQuery(null);
       setTableNameOverride(undefined);
       setInspectorEditMode(false);
       setPendingNewEntity(null);
@@ -74,7 +74,7 @@ export default function App() {
     if (!window.confirm(`Delete schema "${activeSchema?.name}"? This cannot be undone.`)) return;
     store.deleteSchema();
     setSelectedEntityByGroup({});
-    setQueryPattern(undefined);
+    setActiveQuery(null);
     setTableNameOverride(undefined);
     setInspectorEditMode(false);
     setPendingNewEntity(null);
@@ -84,10 +84,17 @@ export default function App() {
   function handleSelectEntity(groupId: string, entityName: string) {
     startTransition(() => {
       setSelectedEntityByGroup({ [groupId]: entityName });
-      setQueryPattern(undefined);
+      setActiveQuery(null);
       setInspectorEditMode(false);
       setPendingNewEntity(null);
     });
+  }
+
+  function handleSelectGsi(groupId: string, entityName: string, gsiName: string) {
+    setSelectedEntityByGroup({ [groupId]: entityName });
+    setActiveQuery({ id: '', name: '', target: gsiName, pkValues: {}, skOp: 'none', skValues: {}, sk2Values: {} });
+    setInspectorEditMode(false);
+    setPendingNewEntity(null);
   }
 
   function handleAddEntity(partitionKey: string) {
@@ -100,7 +107,7 @@ export default function App() {
       description: "",
       gsis: [],
       attributes: [],
-      accessPatterns: [],
+      savedQueries: [],
     });
     setInspectorEditMode(true);
   }
@@ -109,7 +116,7 @@ export default function App() {
     setSelectedEntityByGroup({ [groupId]: entityName });
     setPendingNewEntity(null);
     setInspectorEditMode(true);
-    setQueryPattern(undefined);
+    setActiveQuery(null);
   }
 
   function handleDeleteEntity(entityName: string) {
@@ -129,7 +136,7 @@ export default function App() {
     setPendingNewEntity(null);
     setInspectorEditMode(false);
     setSelectedEntityByGroup({});
-    setQueryPattern(undefined);
+    setActiveQuery(null);
   }
 
   function handleCancelEdit() {
@@ -137,8 +144,16 @@ export default function App() {
     setInspectorEditMode(false);
   }
 
-  function handleUsePattern(pattern: string) {
-    setQueryPattern(pattern);
+  function handleRunQuery(query: SavedQuery) {
+    setActiveQuery(query);
+  }
+
+  function handleSaveQuery(query: SavedQuery) {
+    if (!activeEntity) return;
+    store.updateEntity(activeEntity.name, {
+      ...activeEntity,
+      savedQueries: [...activeEntity.savedQueries, query],
+    });
   }
 
   // ---- AWS handlers ----
@@ -180,7 +195,7 @@ export default function App() {
       entity={displayEntity}
       editMode={isEditMode}
       isNew={pendingNewEntity !== null}
-      onUsePattern={!isEditMode ? handleUsePattern : undefined}
+      onRunQuery={!isEditMode ? handleRunQuery : undefined}
       onEnterEdit={() => setInspectorEditMode(true)}
       onSave={handleSaveEntity}
       onCancelEdit={handleCancelEdit}
@@ -192,10 +207,11 @@ export default function App() {
 
   const queryNode = displayEntity ? (
     <QueryPlayground
-      key={`${displayEntity.name}::${queryPattern}`}
+      key={displayEntity.name}
       entity={displayEntity}
       tableName={effectiveTableName}
-      initialPattern={queryPattern}
+      initialQuery={activeQuery}
+      onSaveQuery={!isEditMode ? handleSaveQuery : undefined}
     />
   ) : (
     <EmptyInspector />
@@ -332,6 +348,7 @@ export default function App() {
               groups={partitionGroups}
               selectedEntityByGroup={selectedEntityByGroup}
               onSelect={handleSelectEntity}
+              onSelectGsi={handleSelectGsi}
               onAddEntity={handleAddEntity}
               onEditEntity={handleEditEntity}
               onDeleteEntity={handleDeleteEntity}

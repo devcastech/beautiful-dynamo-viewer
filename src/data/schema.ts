@@ -1,4 +1,17 @@
-import type { SchemaData } from "../types/schema.ts";
+import type { SchemaData, SavedQuery } from "../types/schema.ts";
+
+/** Convert a list of access pattern strings to SavedQuery objects (name-only, no pre-filled params). */
+function sq(entityName: string, patterns: string[]): SavedQuery[] {
+  return patterns.map((name, i) => ({
+    id: `${entityName}-sq-${i}`,
+    name,
+    target: "base" as const,
+    pkValues: {},
+    skOp: "none" as const,
+    skValues: {},
+    sk2Values: {},
+  }));
+}
 
 export const schemaData: SchemaData = {
   tables: [
@@ -64,7 +77,7 @@ export const schemaData: SchemaData = {
           ],
           description:
             "Producto del catálogo. Soporta dos fases: 'preventa' (acumula requiredStock) y 'normal' (descuenta availableQuantity al crear orden).",
-          accessPatterns: [
+          savedQueries: sq("Product", [
             "Obtener producto por ID (GetItem directo)",
             "Batch get de múltiples productos por IDs",
             "Listar todos los productos (GSI1 PK=PRODUCTS)",
@@ -72,7 +85,7 @@ export const schemaData: SchemaData = {
             "Listar productos por categoría y subcategoría (GSI2 begins_with SK=SUBCATEGORY#<subcategory>)",
             "Obtener producto por referencia (GSI3 PK=REFERENCE#<reference>)",
             "Filtrar por status via FilterExpression sobre cualquier query anterior",
-          ],
+          ]),
         },
         {
           name: "User",
@@ -116,11 +129,11 @@ export const schemaData: SchemaData = {
           ],
           description:
             "Usuario del sistema. Puede ser admin, seller o customer. El email está normalizado a minúsculas en el GSI1PK.",
-          accessPatterns: [
+          savedQueries: sq("User", [
             "Obtener usuario por ID (GetItem directo)",
             "Obtener usuario por email (GSI1 PK=EMAIL#<email>)",
             "Listar todos los usuarios paginados (GSI2 PK=USERS)",
-          ],
+          ]),
         },
         {
           name: "OrderMeta",
@@ -177,7 +190,7 @@ export const schemaData: SchemaData = {
           ],
           description:
             "Metadatos de una orden (sin items). El GSI1SK codifica la fecha para permitir queries por rango. El GSI2SK incluye status+fecha para queries por estado con filtro de fecha. Los items se almacenan en un registro separado (ORDER#ITEMS).",
-          accessPatterns: [
+          savedQueries: sq("OrderMeta", [
             "Obtener metadatos de orden por ID (SK=ORDER dentro del Query de getOrder)",
             "Listar órdenes de un usuario ordenadas por fecha desc (GSI1 PK=USER#<userId>)",
             "Listar órdenes de un usuario en rango de fechas (GSI1 GSI1SK BETWEEN ORDER#<startDate> AND ORDER#<endDate>#ZZZZZZZ)",
@@ -185,7 +198,7 @@ export const schemaData: SchemaData = {
             "Listar órdenes por estado (GSI2 begins_with SK=STATUS#<status>)",
             "Listar órdenes por estado y rango de fechas (GSI2 GSI2SK BETWEEN STATUS#<status>#<start> AND STATUS#<status>#<end>#ZZZZZZZ)",
             "Filtrar por sellerId, category u orderNumber via FilterExpression",
-          ],
+          ]),
         },
         {
           name: "OrderItems",
@@ -197,9 +210,9 @@ export const schemaData: SchemaData = {
           attributes: ["items", "itemCount"],
           description:
             "Array de items de una orden, almacenado en registro separado del metadato para evitar exceder el límite de 400KB en el registro principal. Se obtiene siempre junto con OrderMeta via Query BETWEEN 'ORDER' AND 'ORDER#ITEMS'.",
-          accessPatterns: [
+          savedQueries: sq("OrderItems", [
             "Obtener items de una orden (Query PK=ORDER#<orderId> SK BETWEEN ORDER AND ORDER#ITEMS, retorna ambos registros juntos)",
-          ],
+          ]),
         },
         {
           name: "Shipment",
@@ -218,9 +231,9 @@ export const schemaData: SchemaData = {
           ],
           description:
             "Registro de despacho parcial de una orden. El SK incluye timestamp + número secuencial para unicidad y ordenamiento natural. Múltiples shipments pueden existir por orden.",
-          accessPatterns: [
+          savedQueries: sq("Shipment", [
             "Listar todos los shipments de una orden (Query PK=ORDER#<orderId> begins_with SK=SHIPMENT#)",
-          ],
+          ]),
         },
         {
           name: "OrderHistory",
@@ -238,9 +251,9 @@ export const schemaData: SchemaData = {
           ],
           description:
             "Registro de auditoría de cambios en una orden. changeType puede ser items_update, status_update, meta_update o cancelled. El campo changes es polimórfico según el tipo. Se consulta en orden descendente (ScanIndexForward: false).",
-          accessPatterns: [
+          savedQueries: sq("OrderHistory", [
             "Obtener historial completo de una orden ordenado desc (Query PK=ORDER#<orderId> begins_with SK=HISTORY#)",
-          ],
+          ]),
         },
       ],
     },
@@ -261,10 +274,10 @@ export const schemaData: SchemaData = {
           attributes: ["status", "createdAt", "updatedAt"],
           description:
             "Registro de control del carrito por usuario y categoría. status puede ser 'active' o 'completed'. Es el único registro que persiste permanentemente (sin TTL). Reactivar un carrito completado sólo requiere actualizar status=active via if_not_exists en createdAt.",
-          accessPatterns: [
+          savedQueries: sq("CartMeta", [
             "Obtener o crear meta de carrito (UpdateCommand con if_not_exists en createdAt)",
             "Actualizar status del carrito (UpdateCommand SK=<category>#__META__)",
-          ],
+          ]),
         },
         {
           name: "CartItem",
@@ -276,7 +289,7 @@ export const schemaData: SchemaData = {
           attributes: ["id", "price", "quantity", "ttl"],
           description:
             "Item individual dentro de un carrito. Comparte PK con CartMeta y se distingue porque el SK no termina en '__META__'. Cuando el carrito se completa (checkout), se añade TTL de 7 días a todos los items para auto-expiración. Los items con TTL activo se excluyen de las lecturas activas.",
-          accessPatterns: [
+          savedQueries: sq("CartItem", [
             "Obtener carrito completo (Query PK=<userId> begins_with SK=<category>#, excluye items con ttl)",
             "Obtener todos los carritos de un usuario (Query PK=<userId>, agrupa por category)",
             "Agregar item (PutCommand SK=<category>#<productId>)",
@@ -284,13 +297,13 @@ export const schemaData: SchemaData = {
             "Eliminar item (DeleteCommand SK=<category>#<productId>)",
             "Reemplazar carrito completo: delete batch existentes + batch write nuevos",
             "Contar items activos (Query SELECT COUNT con FilterExpression attribute_not_exists(ttl) AND attribute_not_exists(status))",
-          ],
+          ]),
         },
       ],
     },
     {
       name: "TheDogFarm",
-      table: "thedogfarm-dev", // production name from TABLE_NAME env var
+      table: "thedogfarm-dev",
       story:
         "Single-table design storing reservations, calendar occupancy days, and config records; reservations are queried via a GSI on the type attribute for admin listing.",
       entities: [
@@ -333,13 +346,13 @@ export const schemaData: SchemaData = {
             "GSI1_SK",
           ],
           description:
-            'One record per reservation. The GSI uses the literal string "RESERVATION" as its PK (stored in the `type` attribute) so all reservations can be listed in a single query. GSI1_SK encodes checkIn + id for date-ordered sorting. Status transitions (pending → confirmed / cancelled / completed) are tracked via an embedded auditLog array. Dates (checkIn / checkOut) are intentionally immutable after creation.',
-          accessPatterns: [
+            'One record per reservation. The GSI uses the literal string "RESERVATION" as its PK (stored in the `type` attribute) so all reservations can be listed in a single query.',
+          savedQueries: sq("Reservation", [
             "Get reservation by ID — GetItem on PK=RESERVATION#<id>, SK=METADATA",
-            'List all reservations — Query AdminReservationsIndex where type = "RESERVATION", with optional client-side filters on status, paymentStatus, checkIn range, and upcoming flag',
+            'List all reservations — Query AdminReservationsIndex where type = "RESERVATION"',
             "Update reservation status — UpdateItem on PK/SK setting status and appending to auditLog",
-            "Update reservation fields (guestName, guestPhone, guestsCount, totalPrice, paymentStatus, paymentMethod, specialRequests, plan, priceDetails) — UpdateItem on PK/SK appending to auditLog",
-          ],
+            "Update reservation fields — UpdateItem on PK/SK appending to auditLog",
+          ]),
         },
         {
           name: "CalendarDay",
@@ -350,12 +363,12 @@ export const schemaData: SchemaData = {
           gsis: [],
           attributes: ["PK", "SK", "reservationId", "type", "createdAt"],
           description:
-            "One record per occupied calendar day, grouped by YYYY-MM month partition. Written atomically alongside the parent Reservation via TransactWrite. Deleted (also via TransactWrite) when a reservation is cancelled. The reservationId attribute on each day links back to the owning reservation and is used as a ConditionExpression on delete to prevent accidental removal.",
-          accessPatterns: [
+            "One record per occupied calendar day, grouped by YYYY-MM month partition.",
+          savedQueries: sq("CalendarDay", [
             "Get all occupied days in a month — Query where PK = CALENDAR#<YYYY-MM>",
-            "Check specific dates for occupancy — Query by month partition then match day values in application code",
-            "Release dates on cancellation — TransactWrite Delete each DAY record with ConditionExpression reservationId = <id>, chunked in batches of 25",
-          ],
+            "Check specific dates for occupancy — Query by month partition",
+            "Release dates on cancellation — TransactWrite Delete each DAY record",
+          ]),
         },
         {
           name: "InventoryTemplate",
@@ -374,11 +387,110 @@ export const schemaData: SchemaData = {
             "type",
           ],
           description:
-            "Singleton config record holding the inventory checklist template. Full overwrite on every update (PutItem), so version and lastUpdated are relied on for optimistic history. No GSI needed — always accessed by exact key.",
-          accessPatterns: [
+            "Singleton config record holding the inventory checklist template.",
+          savedQueries: sq("InventoryTemplate", [
             "Get inventory template — GetItem on PK=CONFIG, SK=INVENTORY_TEMPLATE",
             "Overwrite inventory template — PutItem on PK=CONFIG, SK=INVENTORY_TEMPLATE",
+          ]),
+        },
+      ],
+    },
+  ],
+};
+
+export const schemaData_: SchemaData = {
+  tables: [
+    {
+      name: "TheDogFarm",
+      table: "thedogfarm-dev",
+      story:
+        "Single-table design storing reservations, calendar occupancy days, and config records; reservations are queried via a GSI on the type attribute for admin listing.",
+      entities: [
+        {
+          name: "Reservation",
+          pk: "RESERVATION#<reservationId>",
+          sk: "METADATA",
+          role: "Ficha principal",
+          priority: 1,
+          gsis: [
+            {
+              name: "AdminReservationsIndex",
+              pk: "RESERVATION",
+              sk: "DATE#<checkIn>#<reservationId>",
+              pkAttr: "type",
+              skAttr: "GSI1_SK",
+            },
           ],
+          attributes: [
+            "PK",
+            "SK",
+            "id",
+            "createdAt",
+            "user",
+            "guestName",
+            "guestPhone",
+            "checkIn",
+            "checkOut",
+            "nights",
+            "guestsCount",
+            "totalPrice",
+            "status",
+            "paymentStatus",
+            "type",
+            "paymentMethod",
+            "specialRequests",
+            "plan",
+            "priceDetails",
+            "auditLog",
+            "GSI1_SK",
+          ],
+          description:
+            'One record per reservation. The GSI uses the literal string "RESERVATION" as its PK (stored in the `type` attribute) so all reservations can be listed in a single query.',
+          savedQueries: sq("Reservation", [
+            "Get reservation by ID — GetItem on PK=RESERVATION#<id>, SK=METADATA",
+            'List all reservations — Query AdminReservationsIndex where type = "RESERVATION"',
+            "Update reservation status — UpdateItem on PK/SK setting status and appending to auditLog",
+            "Update reservation fields — UpdateItem on PK/SK appending to auditLog",
+          ]),
+        },
+        {
+          name: "CalendarDay",
+          pk: "CALENDAR#<yearMonth>",
+          sk: "DAY#<day>",
+          role: "Día ocupado",
+          priority: 1,
+          gsis: [],
+          attributes: ["PK", "SK", "reservationId", "type", "createdAt"],
+          description:
+            "One record per occupied calendar day, grouped by YYYY-MM month partition.",
+          savedQueries: sq("CalendarDay", [
+            "Get all occupied days in a month — Query where PK = CALENDAR#<YYYY-MM>",
+            "Check specific dates for occupancy — Query by month partition",
+            "Release dates on cancellation — TransactWrite Delete each DAY record",
+          ]),
+        },
+        {
+          name: "InventoryTemplate",
+          pk: "CONFIG",
+          sk: "INVENTORY_TEMPLATE",
+          role: "Configuración global",
+          priority: 1,
+          gsis: [],
+          attributes: [
+            "PK",
+            "SK",
+            "items",
+            "lastUpdated",
+            "updatedBy",
+            "version",
+            "type",
+          ],
+          description:
+            "Singleton config record holding the inventory checklist template.",
+          savedQueries: sq("InventoryTemplate", [
+            "Get inventory template — GetItem on PK=CONFIG, SK=INVENTORY_TEMPLATE",
+            "Overwrite inventory template — PutItem on PK=CONFIG, SK=INVENTORY_TEMPLATE",
+          ]),
         },
       ],
     },

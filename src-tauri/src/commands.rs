@@ -152,12 +152,12 @@ pub async fn query_table(
         .map(|m| serde_dynamo::from_item(m.to_owned()))
         .transpose()
         .map_err(|e: serde_dynamo::Error| AppError { message: e.to_string() })?;
-    println!("response {:?}", response);
+    //println!("response {:?}", response);
 
     // response.items() devuelve &[HashMap<String, AttributeValue>]
     // .to_vec() clona eso a Vec para que serde_dynamo pueda consumirlo
     let raw_items = response.items().to_vec();
-    println!("raw_items {:?}", raw_items);
+    //println!("raw_items {:?}", raw_items);
 
     // serde_dynamo::from_items convierte Vec<HashMap<String, AttributeValue>>
     // a Vec<serde_json::Value> aplanando los wrappers S/N/Bool/etc.

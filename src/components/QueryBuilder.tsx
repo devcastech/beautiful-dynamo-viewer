@@ -1,8 +1,8 @@
+import { useState, type ReactNode } from 'react';
+import { Bookmark, Check, X } from 'lucide-react';
 import { parsePattern } from '../utils/patternParser.ts';
-import type { Entity } from '../types/schema.ts';
+import type { Entity, SkOp } from '../types/schema.ts';
 import type { QueryParams, SkCondition } from '../types/query.ts';
-
-type SkOp = 'Eq' | 'BeginsWith' | 'Between' | 'none';
 
 interface QueryBuilderProps {
   entity: Entity;
@@ -18,6 +18,7 @@ interface QueryBuilderProps {
   onChangeSkValues: (values: Record<string, string>) => void;
   onChangeSk2Values: (values: Record<string, string>) => void;
   onSubmit: (params: QueryParams) => void;
+  onSaveQuery?: (name: string) => void;
 }
 
 const inputCls =
@@ -37,7 +38,10 @@ export function QueryBuilder({
   onChangeSkValues,
   onChangeSk2Values,
   onSubmit,
+  onSaveQuery,
 }: QueryBuilderProps) {
+  const [saveName, setSaveName] = useState<string | null>(null);
+
   const activeGsi =
     selectedTarget === 'base' ? null : entity.gsis.find((g) => g.name === selectedTarget) ?? null;
 
@@ -71,12 +75,19 @@ export function QueryBuilder({
 
     onSubmit({
       table: tableName,
-      pkName: pkName,
-      pkValue: pkValue,
+      pkName,
+      pkValue,
       skName: skOp !== 'none' ? skName : undefined,
-      skCondition: skCondition,
+      skCondition,
       indexName: activeGsi ? activeGsi.name : undefined,
     });
+  }
+
+  function handleConfirmSave() {
+    const name = saveName?.trim();
+    if (!name) return;
+    onSaveQuery?.(name);
+    setSaveName(null);
   }
 
   return (
@@ -102,9 +113,7 @@ export function QueryBuilder({
         <div className="flex flex-wrap items-center gap-1 py-1.5 px-2.5 bg-elevated border border-line rounded-md min-h-9">
           {parsedPk.segments.map((seg, i) =>
             seg.type === 'literal' ? (
-              <span key={i} className="pattern-literal text-xs">
-                {seg.value}
-              </span>
+              <span key={i} className="pattern-literal text-xs">{seg.value}</span>
             ) : (
               <input
                 key={i}
@@ -146,9 +155,7 @@ export function QueryBuilder({
             ) : (
               parsedSk.segments.map((seg, i) =>
                 seg.type === 'literal' ? (
-                  <span key={i} className="pattern-literal text-xs">
-                    {seg.value}
-                  </span>
+                  <span key={i} className="pattern-literal text-xs">{seg.value}</span>
                 ) : (
                   <input
                     key={i}
@@ -170,9 +177,7 @@ export function QueryBuilder({
             <div className="flex flex-wrap items-center gap-1 py-1.5 px-2.5 bg-elevated border border-line rounded-md min-h-9">
               {parsedSk.segments.map((seg, i) =>
                 seg.type === 'literal' ? (
-                  <span key={i} className="pattern-literal text-xs">
-                    {seg.value}
-                  </span>
+                  <span key={i} className="pattern-literal text-xs">{seg.value}</span>
                 ) : (
                   <input
                     key={i}
@@ -189,24 +194,68 @@ export function QueryBuilder({
         )}
       </div>
 
-      {/* Execute button */}
-      <button
-        type="button"
-        disabled={!canSubmit}
-        onClick={handleSubmit}
-        className={`py-2 px-4 font-mono text-xs font-semibold tracking-[0.05em] rounded-md border transition-all ${
-          canSubmit
-            ? 'bg-accent border-accent text-canvas cursor-pointer'
-            : 'bg-transparent border-line text-muted opacity-50 cursor-not-allowed'
-        }`}
-      >
-        ▶ Execute
-      </button>
+      {/* Actions row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+          className={`py-2 px-4 font-mono text-xs font-semibold tracking-[0.05em] rounded-md border transition-all ${
+            canSubmit
+              ? 'bg-accent border-accent text-canvas cursor-pointer'
+              : 'bg-transparent border-line text-muted opacity-50 cursor-not-allowed'
+          }`}
+        >
+          ▶ Execute
+        </button>
+
+        {onSaveQuery && saveName === null && (
+          <button
+            type="button"
+            onClick={() => setSaveName('')}
+            className="flex items-center gap-1 font-mono text-xs text-muted hover:text-primary px-2 py-1.5 rounded-[5px] bg-transparent border border-line cursor-pointer transition-colors"
+          >
+            <Bookmark size={11} /> Save as…
+          </button>
+        )}
+
+        {onSaveQuery && saveName !== null && (
+          <div className="flex items-center gap-1">
+            <input
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmSave();
+                if (e.key === 'Escape') setSaveName(null);
+              }}
+              placeholder="Query name…"
+              autoFocus
+              className={`${inputCls} w-44`}
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={handleConfirmSave}
+              disabled={!saveName.trim()}
+              className="text-muted hover:text-accent bg-transparent border-0 cursor-pointer p-0.5 disabled:opacity-40"
+            >
+              <Check size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSaveName(null)}
+              className="text-muted hover:text-primary bg-transparent border-0 cursor-pointer p-0.5"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }: { children: ReactNode }) {
   return (
     <span className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted">
       {children}

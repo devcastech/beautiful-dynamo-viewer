@@ -1,15 +1,15 @@
-import { startTransition, useEffect, useState } from "react";
-import { EntityBrowser } from "./components/EntityBrowser.tsx";
-import { EntityInspector } from "./components/EntityInspector.tsx";
-import { QueryPlayground } from "./components/QueryPlayground.tsx";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { LibrarySidebar, type SavedQueryRef } from "./components/LibrarySidebar.tsx";
+import { OverflowMenu } from "./components/OverflowMenu.tsx";
 import { SchemaModal } from "./components/SchemaModal.tsx";
+import { WorkspaceArea, type WorkspaceTab } from "./components/WorkspaceArea.tsx";
 import { schemaData } from "./data/schema.ts";
 import { memoryAdapter } from "./adapters/storage/memoryAdapter.ts";
 import { useSchemaStore } from "./hooks/useSchemaStore.ts";
 import { buildPartitionGroups } from "./utils/warehouse.ts";
-import type { Entity, SavedQuery } from "./types/schema.ts";
+import type { DynamoTable, Entity, SavedQuery } from "./types/schema.ts";
 import { Panel, Group, Separator } from "react-resizable-panels";
-import { Check, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, CircleAlert, Download, LoaderCircle, Pencil, Plus, Trash2, Upload } from "lucide-react";
 
 const { invoke } = await import("@tauri-apps/api/core");
 
@@ -23,11 +23,18 @@ const AWS_REGIONS = [
   "ap-south-1", "sa-east-1",
 ];
 
+const GROUP_ACCENTS = [
+  '#F59E0B', '#10B981', '#38BDF8', '#FB923C', '#A78BFA', '#94A3B8',
+];
+
 export default function App() {
   const store = useSchemaStore(repo);
 
-  const [selectedEntityByGroup, setSelectedEntityByGroup] = useState<Record<string, string>>({});
-  const [activeQuery, setActiveQuery] = useState<SavedQuery | null>(null);
+  const [selectedEntityName, setSelectedEntityName] = useState<string | null>(null);
+  const [initialQuery, setInitialQuery] = useState<SavedQuery | null>(null);
+  const [activeQueryId, setActiveQueryId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('builder');
+
   const [awsProfiles, setAwsProfiles] = useState<string[]>([]);
   const [selectedAwsProfile, setSelectedAwsProfile] = useState<string | undefined>(undefined);
   const [isAwsLoginInProgress, setIsAwsLoginInProgress] = useState<boolean>(false);
@@ -46,9 +53,8 @@ export default function App() {
   const partitionGroups = activeSchema ? buildPartitionGroups(activeSchema) : [];
   const effectiveTableName = tableNameOverride ?? activeSchema?.table ?? "";
 
-  const activeEntityName = Object.values(selectedEntityByGroup).find(Boolean) ?? null;
   const activeEntity =
-    activeSchema?.entities.find((e) => e.name === activeEntityName) ??
+    activeSchema?.entities.find((e) => e.name === selectedEntityName) ??
     activeSchema?.entities[0] ??
     null;
 
@@ -58,43 +64,86 @@ export default function App() {
   const totalGsis = activeSchema?.entities.reduce((t, e) => t + e.gsis.length, 0) ?? 0;
   const totalPatterns = activeSchema?.entities.reduce((t, e) => t + e.savedQueries.length, 0) ?? 0;
 
+  // Accent map: partition-key string → color
+  const accentByPartitionKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    partitionGroups.forEach((g, i) => {
+      map[g.partitionKey] = GROUP_ACCENTS[i % GROUP_ACCENTS.length];
+    });
+    return map;
+  }, [partitionGroups]);
+
+  // Flat list of saved queries (across all entities)
+  const savedQueriesRefs: SavedQueryRef[] = useMemo(() => {
+    if (!activeSchema) return [];
+    return activeSchema.entities.flatMap((entity) =>
+      entity.savedQueries.map((q) => ({
+        query: q,
+        entityName: entity.name,
+        accent: accentByPartitionKey[entity.pk],
+      })),
+    );
+  }, [activeSchema, accentByPartitionKey]);
+
   // ---- Schema handlers ----
   function handleSelectSchema(idx: number) {
     startTransition(() => {
       store.setActiveIdx(idx);
-      setSelectedEntityByGroup({});
-      setActiveQuery(null);
+      resetWorkspace();
       setTableNameOverride(undefined);
-      setInspectorEditMode(false);
-      setPendingNewEntity(null);
     });
+  }
+
+  function resetWorkspace() {
+    setSelectedEntityName(null);
+    setInitialQuery(null);
+    setActiveQueryId(null);
+    setInspectorEditMode(false);
+    setPendingNewEntity(null);
+    setActiveTab('builder');
   }
 
   function handleDeleteSchema() {
     if (!window.confirm(`Delete schema "${activeSchema?.name}"? This cannot be undone.`)) return;
     store.deleteSchema();
-    setSelectedEntityByGroup({});
-    setActiveQuery(null);
+    resetWorkspace();
     setTableNameOverride(undefined);
-    setInspectorEditMode(false);
-    setPendingNewEntity(null);
   }
 
-  // ---- Entity handlers ----
-  function handleSelectEntity(groupId: string, entityName: string) {
+  // ---- Entity / query handlers ----
+  function handleSelectEntity(_groupId: string, entityName: string) {
     startTransition(() => {
-      setSelectedEntityByGroup({ [groupId]: entityName });
-      setActiveQuery(null);
+      setSelectedEntityName(entityName);
+      setInitialQuery(null);
+      setActiveQueryId(null);
       setInspectorEditMode(false);
       setPendingNewEntity(null);
+      setActiveTab('builder');
     });
   }
 
-  function handleSelectGsi(groupId: string, entityName: string, gsiName: string) {
-    setSelectedEntityByGroup({ [groupId]: entityName });
-    setActiveQuery({ id: '', name: '', target: gsiName, pkValues: {}, skOp: 'none', skValues: {}, sk2Values: {} });
+  function handleSelectGsi(_groupId: string, entityName: string, gsiName: string) {
+    setSelectedEntityName(entityName);
+    setInitialQuery({
+      id: '',
+      name: '',
+      target: gsiName,
+      pkValues: {},
+      skOp: 'none',
+      skValues: {},
+      sk2Values: {},
+    });
     setInspectorEditMode(false);
     setPendingNewEntity(null);
+    setActiveTab('builder');
+  }
+
+  function handleSelectSavedQuery(entityName: string, query: SavedQuery) {
+    setSelectedEntityName(entityName);
+    setInitialQuery(query);
+    setInspectorEditMode(false);
+    setPendingNewEntity(null);
+    setActiveTab('builder');
   }
 
   function handleAddEntity(partitionKey: string) {
@@ -110,21 +159,21 @@ export default function App() {
       savedQueries: [],
     });
     setInspectorEditMode(true);
+    setActiveTab('schema');
   }
 
-  function handleEditEntity(groupId: string, entityName: string) {
-    setSelectedEntityByGroup({ [groupId]: entityName });
+  function handleEditEntity(_groupId: string, entityName: string) {
+    setSelectedEntityName(entityName);
     setPendingNewEntity(null);
     setInspectorEditMode(true);
-    setActiveQuery(null);
+    setInitialQuery(null);
+    setActiveTab('schema');
   }
 
   function handleDeleteEntity(entityName: string) {
     if (!window.confirm(`Delete entity "${entityName}"?`)) return;
     store.deleteEntity(entityName);
-    setSelectedEntityByGroup({});
-    setInspectorEditMode(false);
-    setPendingNewEntity(null);
+    resetWorkspace();
   }
 
   function handleSaveEntity(entity: Entity) {
@@ -135,17 +184,14 @@ export default function App() {
     }
     setPendingNewEntity(null);
     setInspectorEditMode(false);
-    setSelectedEntityByGroup({});
-    setActiveQuery(null);
+    setSelectedEntityName(entity.name);
+    setActiveTab('builder');
   }
 
   function handleCancelEdit() {
     setPendingNewEntity(null);
     setInspectorEditMode(false);
-  }
-
-  function handleRunQuery(query: SavedQuery) {
-    setActiveQuery(query);
+    setActiveTab('builder');
   }
 
   function handleSaveQuery(query: SavedQuery) {
@@ -154,6 +200,70 @@ export default function App() {
       ...activeEntity,
       savedQueries: [...activeEntity.savedQueries, query],
     });
+  }
+
+  function handleUpdateQuery(query: SavedQuery) {
+    if (!activeEntity) return;
+    store.updateEntity(activeEntity.name, {
+      ...activeEntity,
+      savedQueries: activeEntity.savedQueries.map((q) => (q.id === query.id ? query : q)),
+    });
+  }
+
+  function handleDeleteQuery(entityName: string, queryId: string) {
+    const entity = activeSchema?.entities.find((e) => e.name === entityName);
+    if (!entity) return;
+    store.updateEntity(entityName, {
+      ...entity,
+      savedQueries: entity.savedQueries.filter((q) => q.id !== queryId),
+    });
+    if (activeQueryId === queryId) {
+      setActiveQueryId(null);
+      setInitialQuery(null);
+    }
+  }
+
+  function handleRenameQuery(entityName: string, queryId: string, name: string) {
+    const entity = activeSchema?.entities.find((e) => e.name === entityName);
+    if (!entity) return;
+    const query = entity.savedQueries.find((q) => q.id === queryId);
+    if (!query) return;
+    store.updateEntity(entityName, {
+      ...entity,
+      savedQueries: entity.savedQueries.map((q) => (q.id === queryId ? { ...q, name } : q)),
+    });
+  }
+
+  // ---- Schema import/export ----
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  function handleExportSchema() {
+    if (!activeSchema) return;
+    const json = JSON.stringify(activeSchema, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeSchema.name.replace(/\s+/g, '-').toLowerCase()}.schema.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportSchema(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string) as DynamoTable;
+        if (!data.name || !data.table || !Array.isArray(data.entities)) {
+          alert('Invalid schema file: must contain name, table, and entities.');
+          return;
+        }
+        store.addSchema(data);
+      } catch {
+        alert('Failed to parse JSON file.');
+      }
+    };
+    reader.readAsText(file);
   }
 
   // ---- AWS handlers ----
@@ -188,42 +298,13 @@ export default function App() {
     handleProfile(profile);
   };
 
-  // ---- Render ----
-  const inspectorNode = displayEntity ? (
-    <EntityInspector
-      key={`${displayEntity.name || "new"}::${isEditMode}`}
-      entity={displayEntity}
-      editMode={isEditMode}
-      isNew={pendingNewEntity !== null}
-      onRunQuery={!isEditMode ? handleRunQuery : undefined}
-      onEnterEdit={() => setInspectorEditMode(true)}
-      onSave={handleSaveEntity}
-      onCancelEdit={handleCancelEdit}
-      onDelete={activeEntity ? () => handleDeleteEntity(activeEntity.name) : undefined}
-    />
-  ) : (
-    <EmptyInspector />
-  );
-
-  const queryNode = displayEntity ? (
-    <QueryPlayground
-      key={displayEntity.name}
-      entity={displayEntity}
-      tableName={effectiveTableName}
-      initialQuery={activeQuery}
-      onSaveQuery={!isEditMode ? handleSaveQuery : undefined}
-    />
-  ) : (
-    <EmptyInspector />
-  );
-
   return (
     <div className="flex flex-col h-screen bg-canvas overflow-hidden">
       {/* Top bar */}
-      <header className="flex items-center gap-4 px-4 h-11 shrink-0">
+      <header className="flex items-center gap-3 px-4 h-12 shrink-0 border-b border-line-dim">
         {/* Brand */}
         <div className="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <rect x="2" y="1" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.9" />
             <rect x="2" y="6" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.6" />
             <rect x="2" y="11" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.35" />
@@ -233,167 +314,170 @@ export default function App() {
           </span>
         </div>
 
-        <div className="w-px h-5 bg-line" />
+        <Divider />
 
-        {/* Schema selector */}
-        <div className="flex gap-1.5 items-center">
-          <label className="shrink-0 text-xs text-muted font-mono">schema</label>
+        {/* ── Schema region ── */}
+        <div className="flex gap-1.5 items-center" role="group" aria-label="Schema">
+          <label htmlFor="schema-selector" className="shrink-0 text-[11px] text-muted font-mono uppercase tracking-[0.06em]">schema</label>
           {store.schemas.length > 1 ? (
             <select
+              id="schema-selector"
               value={store.activeIdx}
               onChange={(e) => handleSelectSchema(Number(e.target.value))}
-              className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[3px] cursor-pointer outline-none"
+              className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[4px] cursor-pointer outline-none"
             >
               {store.schemas.map((s, i) => (
                 <option key={i} value={i}>{s.name}</option>
               ))}
             </select>
           ) : (
-            <span className="font-mono text-xs text-primary">{activeSchema?.name ?? "—"}</span>
+            <span id="schema-selector" className="font-mono text-xs text-primary px-2 py-[4px] bg-elevated/60 rounded-[5px]">
+              {activeSchema?.name ?? "—"}
+            </span>
           )}
           <button
             type="button"
             title="New schema"
+            aria-label="New schema"
             onClick={() => setSchemaModal("add")}
             className={ICON_BTN}
           >
-            <Plus size={12} />
+            <Plus size={14} aria-hidden="true" />
           </button>
-          {activeSchema && (
-            <>
-              <button
-                type="button"
-                title="Edit schema"
-                onClick={() => setSchemaModal("edit")}
-                className={ICON_BTN}
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                type="button"
-                title="Delete schema"
-                onClick={handleDeleteSchema}
-                className={`${ICON_BTN} hover:text-red-400`}
-              >
-                <Trash2 size={12} />
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Table name (connection param) */}
-        <div className="flex gap-1.5 items-center">
-          <label className="shrink-0 text-xs text-muted/60 font-mono">table</label>
           <input
-            value={effectiveTableName}
-            onChange={(e) => setTableNameOverride(e.target.value)}
-            className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[3px] outline-none w-48 text-muted/80"
-            spellCheck={false}
+            ref={importInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImportSchema(file);
+              e.target.value = '';
+            }}
+          />
+          <OverflowMenu
+            ariaLabel="More schema actions"
+            items={
+              activeSchema
+                ? [
+                    { label: 'Import from JSON', icon: <Upload size={13} />, onClick: () => importInputRef.current?.click() },
+                    { label: 'Edit schema', icon: <Pencil size={13} />, onClick: () => setSchemaModal('edit') },
+                    { label: 'Export as JSON', icon: <Download size={13} />, onClick: handleExportSchema },
+                    { label: 'Delete schema', icon: <Trash2 size={13} />, onClick: handleDeleteSchema, danger: true },
+                  ]
+                : [
+                    { label: 'Import from JSON', icon: <Upload size={13} />, onClick: () => importInputRef.current?.click() },
+                  ]
+            }
           />
         </div>
 
-        <div className="flex gap-2 items-center">
-          <label htmlFor="aws-region" className="shrink-0 text-xs text-muted font-mono">region</label>
-          <select
-            id="aws-region"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[3px] cursor-pointer outline-none"
-          >
-            {AWS_REGIONS.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
+        <Divider />
 
-        <div className="flex gap-2 items-center">
-          <label htmlFor="aws-profile" className="shrink-0 text-xs text-muted font-mono">profile</label>
-          <select
-            onChange={(e) => handleProfile(e.target.value)}
-            name="aws-profile"
-            id="aws-profile"
-            className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[3px] cursor-pointer outline-none"
-          >
-            <option value="">Select a profile</option>
-            {awsProfiles.map((p, i) => (
-              <option key={p + i} value={p}>{p}</option>
-            ))}
-          </select>
-          <div className="flex justify-center items-center">
-            {isAwsLoginInProgress && <LoaderCircle width="12" height="12" className="animate-spin" />}
+        {/* ── Connection region ── */}
+        <div className="flex gap-3 items-center" role="group" aria-label="Connection settings">
+          {/* Table name */}
+          <div className="flex gap-1.5 items-center">
+            <label htmlFor="table-name" className="shrink-0 text-[11px] text-muted font-mono uppercase tracking-[0.06em]">table</label>
+            <input
+              id="table-name"
+              value={effectiveTableName}
+              onChange={(e) => setTableNameOverride(e.target.value)}
+              className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[4px] outline-none w-48 focus:border-accent/50 transition-colors"
+              spellCheck={false}
+            />
           </div>
-          {!isAwsLoginInProgress && selectedAwsProfile && (
-            <div className="flex justify-center items-center">
-              {awsLogged ? (
-                <Check className="text-green-500" width="12" height="12" />
-              ) : (
-                <button onClick={() => handleAwsSsoLogin(selectedAwsProfile)}>login</button>
-              )}
-            </div>
-          )}
+
+          {/* Region */}
+          <div className="flex gap-1.5 items-center">
+            <label htmlFor="aws-region" className="shrink-0 text-[11px] text-muted font-mono uppercase tracking-[0.06em]">region</label>
+            <select
+              id="aws-region"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[4px] cursor-pointer outline-none"
+            >
+              {AWS_REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Profile + auth status */}
+          <div className="flex gap-1.5 items-center">
+            <label htmlFor="aws-profile" className="shrink-0 text-[11px] text-muted font-mono uppercase tracking-[0.06em]">profile</label>
+            <select
+              onChange={(e) => handleProfile(e.target.value)}
+              name="aws-profile"
+              id="aws-profile"
+              defaultValue=""
+              className="bg-elevated border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[4px] cursor-pointer outline-none"
+            >
+              <option value="">— select —</option>
+              {awsProfiles.map((p, i) => (
+                <option key={p + i} value={p}>{p}</option>
+              ))}
+            </select>
+            <AuthStatusBadge
+              profile={selectedAwsProfile}
+              loading={isAwsLoginInProgress}
+              authed={awsLogged}
+              onLogin={() => selectedAwsProfile && handleAwsSsoLogin(selectedAwsProfile)}
+            />
+          </div>
         </div>
 
         {/* Stats */}
-        <div className="ml-auto flex gap-3 items-center">
+        <div className="ml-auto flex gap-3 items-center" role="group" aria-label="Schema statistics">
           <StatPill label="entities" value={activeSchema?.entities.length ?? 0} />
           <StatPill label="GSIs" value={totalGsis} />
           <StatPill label="patterns" value={totalPatterns} />
         </div>
       </header>
 
-      <Group className="gap-1">
-        <Panel defaultSize="15%" minSize="150px">
-          <div className="h-full shrink-0 border border-line bg-surface overflow-hidden flex flex-col rounded-2xl">
-            <EntityBrowser
+      {/* Main area: sidebar + workspace */}
+      <main aria-label="Workspace" className="flex flex-1 min-h-0 overflow-hidden">
+        <Group className="flex-1 min-h-0 gap-1 p-2">
+          <Panel defaultSize={20} minSize={14}>
+            <LibrarySidebar
               groups={partitionGroups}
-              selectedEntityByGroup={selectedEntityByGroup}
-              onSelect={handleSelectEntity}
+              savedQueries={savedQueriesRefs}
+              selectedEntityName={activeEntity?.name ?? null}
+              activeQueryId={activeQueryId}
+              onSelectEntity={handleSelectEntity}
               onSelectGsi={handleSelectGsi}
+              onSelectQuery={handleSelectSavedQuery}
               onAddEntity={handleAddEntity}
               onEditEntity={handleEditEntity}
               onDeleteEntity={handleDeleteEntity}
+              onRenameQuery={handleRenameQuery}
+              onDeleteQuery={handleDeleteQuery}
             />
-          </div>
-        </Panel>
-        <Separator />
-        <Panel defaultSize="30%" minSize="150px">
-          <div className="h-full flex-1 min-w-0 border border-line bg-canvas overflow-hidden flex flex-col rounded-2xl">
-            <ColHeader label="SCHEMA" />
-            <div className="flex-1 overflow-hidden">{inspectorNode}</div>
-          </div>
-        </Panel>
-        <Separator />
-        <Panel minSize="150px">
-          <div className="h-full dot-grid flex-1 min-w-0 border border-line overflow-hidden flex flex-col rounded-2xl">
-            <ColHeader label="QUERY" glassy />
-            <div className="flex-1 overflow-hidden">{queryNode}</div>
-          </div>
-        </Panel>
-      </Group>
-
-      {/* 3-column body */}
-      <div className="flex flex-1 overflow-hidden min-h-0 gap-2 p-2">
-        <div className="w-[260px] shrink-0 border border-line bg-surface overflow-hidden flex flex-col rounded-2xl">
-          <EntityBrowser
-            groups={partitionGroups}
-            selectedEntityByGroup={selectedEntityByGroup}
-            onSelect={handleSelectEntity}
-            onAddEntity={handleAddEntity}
-            onEditEntity={handleEditEntity}
-            onDeleteEntity={handleDeleteEntity}
-          />
-        </div>
-
-        <div className="flex-1 min-w-0 border border-line bg-canvas overflow-hidden flex flex-col rounded-2xl">
-          <ColHeader label="SCHEMA" />
-          <div className="flex-1 overflow-hidden">{inspectorNode}</div>
-        </div>
-
-        <div className="dot-grid flex-1 min-w-0 border border-line overflow-hidden flex flex-col rounded-2xl">
-          <ColHeader label="QUERY" glassy />
-          <div className="flex-1 overflow-hidden">{queryNode}</div>
-        </div>
-      </div>
+          </Panel>
+          <Separator className="w-1 cursor-col-resize hover:bg-accent/40 transition-colors rounded" />
+          <Panel defaultSize={80} minSize={40}>
+            <WorkspaceArea
+              entity={displayEntity}
+              tableName={effectiveTableName}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              initialQuery={initialQuery}
+              activeQueryId={activeQueryId}
+              onActiveQueryChange={setActiveQueryId}
+              onSaveQuery={!isEditMode ? handleSaveQuery : undefined}
+              onUpdateQuery={!isEditMode ? handleUpdateQuery : undefined}
+              isEditMode={isEditMode}
+              isNewEntity={pendingNewEntity !== null}
+              onEnterEdit={() => { setInspectorEditMode(true); setActiveTab('schema'); }}
+              onSaveEntity={handleSaveEntity}
+              onCancelEdit={handleCancelEdit}
+              onDeleteEntity={activeEntity ? () => handleDeleteEntity(activeEntity.name) : undefined}
+            />
+          </Panel>
+        </Group>
+      </main>
 
       {/* Schema modal */}
       {schemaModal && (
@@ -414,31 +498,63 @@ export default function App() {
 
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex items-baseline gap-1">
-      <span className="font-mono text-[13px] font-semibold text-secondary">{value}</span>
-      <span className="text-xs text-muted">{label}</span>
+    <div className="flex items-baseline gap-1" aria-label={`${value} ${label}`}>
+      <span aria-hidden="true" className="font-mono text-[13px] font-semibold text-secondary">{value}</span>
+      <span aria-hidden="true" className="text-xs text-muted">{label}</span>
     </div>
   );
 }
 
-function ColHeader({ label, glassy }: { label: string; glassy?: boolean }) {
-  return (
-    <div className={`px-4 py-2 border-b border-line shrink-0 ${glassy ? "bg-[rgba(19,22,32,0.85)]" : "bg-surface"}`}>
-      <span className="font-mono text-[11px] font-semibold tracking-[0.1em] text-muted uppercase">
-        {label}
+function Divider() {
+  return <div className="w-px h-5 bg-line-dim shrink-0" aria-hidden="true" />;
+}
+
+function AuthStatusBadge({
+  profile,
+  loading,
+  authed,
+  onLogin,
+}: {
+  profile: string | undefined;
+  loading: boolean;
+  authed: boolean;
+  onLogin: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-1 px-2 py-[3px] rounded-[5px] bg-elevated border border-line" aria-live="polite">
+        <LoaderCircle width={11} height={11} className="animate-spin text-muted" aria-hidden="true" />
+        <span className="font-mono text-[10px] text-muted">checking…</span>
+      </div>
+    );
+  }
+  if (!profile) {
+    return (
+      <span className="font-mono text-[10px] text-muted/60 px-1.5" aria-label="No profile selected">
+        not connected
       </span>
-    </div>
-  );
-}
-
-function EmptyInspector() {
+    );
+  }
+  if (authed) {
+    return (
+      <div className="flex items-center gap-1 px-2 py-[3px] rounded-[5px] bg-[rgba(16,185,129,0.08)] border border-[rgba(16,185,129,0.25)]" aria-live="polite">
+        <Check width={11} height={11} className="text-ok" aria-hidden="true" />
+        <span className="font-mono text-[10px] text-ok">connected</span>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col items-center justify-center h-full text-muted text-xs font-ui gap-1">
-      <span className="text-muted/50">No schema loaded</span>
-      <span className="text-muted/30">Create one with the + button above</span>
-    </div>
+    <button
+      type="button"
+      onClick={onLogin}
+      aria-label={`Sign in to AWS profile ${profile}`}
+      className="flex items-center gap-1 font-mono text-[10px] text-accent hover:bg-accent-dim bg-transparent border border-accent-line rounded-[5px] px-2 py-[3px] cursor-pointer transition-colors"
+    >
+      <CircleAlert width={11} height={11} aria-hidden="true" />
+      sign in
+    </button>
   );
 }
 
 const ICON_BTN =
-  "text-muted hover:text-primary bg-transparent border-0 cursor-pointer p-0.5 rounded transition-colors";
+  "text-muted hover:text-primary hover:bg-elevated bg-transparent border-0 cursor-pointer p-1.5 rounded transition-colors";

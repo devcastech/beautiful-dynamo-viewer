@@ -1,12 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { Check, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
-import type { Entity, GSI, SavedQuery } from '../types/schema.ts';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import type { Entity, GSI } from '../types/schema.ts';
 
 interface EntityInspectorProps {
   entity: Entity;
   editMode?: boolean;
   isNew?: boolean;
-  onRunQuery?: (query: SavedQuery) => void;
   onEnterEdit?: () => void;
   onSave?: (entity: Entity) => void;
   onCancelEdit?: () => void;
@@ -17,7 +16,6 @@ export function EntityInspector({
   entity,
   editMode = false,
   isNew = false,
-  onRunQuery,
   onEnterEdit,
   onSave,
   onCancelEdit,
@@ -152,32 +150,6 @@ export function EntityInspector({
             </button>
           </EditSection>
 
-          {/* Saved Queries (edit: rename / delete only — create from QueryBuilder) */}
-          <EditSection label="Saved Queries">
-            {draft.savedQueries.length === 0 ? (
-              <p className="text-[11px] text-muted/60 font-ui">
-                No saved queries yet. Build a query and use "Save as…" to add one.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {draft.savedQueries.map((q, i) => (
-                  <div key={q.id} className="flex items-center gap-1">
-                    <span className="font-mono text-[10px] text-muted w-[18px] text-right shrink-0">{i + 1}.</span>
-                    <input
-                      value={q.name}
-                      onChange={(e) => set('savedQueries', draft.savedQueries.map((sq, idx) => idx === i ? { ...sq, name: e.target.value } : sq))}
-                      className={`${INPUT} flex-1 text-[12px]`}
-                      spellCheck={false}
-                    />
-                    <button type="button" onClick={() => set('savedQueries', draft.savedQueries.filter((_, idx) => idx !== i))} className="text-muted hover:text-red-400 bg-transparent border-0 cursor-pointer p-1 transition-colors shrink-0">
-                      <X size={11} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </EditSection>
-
           {/* Attributes */}
           <EditSection label="Attributes">
             <div className="flex flex-wrap gap-[5px] mb-2">
@@ -262,43 +234,6 @@ export function EntityInspector({
                 </div>
               ))}
             </div>
-          </Section>
-        )}
-
-        {/* Saved Queries */}
-        {entity.savedQueries.length > 0 && (
-          <Section label="Saved Queries">
-            <ul className="m-0 p-0 list-none flex flex-col gap-[2px]">
-              {entity.savedQueries.map((query, index) => (
-                <li
-                  key={query.id}
-                  className="group flex items-center gap-2 px-2 py-[5px] rounded transition-colors hover:bg-elevated"
-                >
-                  <span className="font-mono text-[11px] text-muted min-w-[18px] text-right shrink-0">
-                    {index + 1}.
-                  </span>
-                  <span className="flex-1 text-[13px] text-secondary leading-normal font-ui">
-                    {query.name}
-                  </span>
-                  {query.target !== 'base' && (
-                    <span className="font-mono text-[9px] px-[5px] py-[1px] rounded-[3px] border border-accent/30 text-accent bg-accent-dim shrink-0">
-                      {query.target}
-                    </span>
-                  )}
-                  {onRunQuery && (
-                    <button
-                      type="button"
-                      title="Run query"
-                      onClick={() => onRunQuery(query)}
-                      className="opacity-0 group-hover:opacity-100 bg-accent-dim border border-accent-line rounded-[3px] px-[5px] py-[2px] cursor-pointer text-accent flex items-center gap-[3px] shrink-0 transition-opacity duration-150 text-[10px] font-mono"
-                    >
-                      <Play size={9} />
-                      <span>run</span>
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
           </Section>
         )}
 

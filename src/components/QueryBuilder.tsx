@@ -19,6 +19,8 @@ interface QueryBuilderProps {
   onChangeSk2Values: (values: Record<string, string>) => void;
   onSubmit: (params: QueryParams) => void;
   onSaveQuery?: (name: string) => void;
+  onUpdateQuery?: () => void;
+  activeQueryName?: string;
 }
 
 const inputCls =
@@ -39,6 +41,8 @@ export function QueryBuilder({
   onChangeSk2Values,
   onSubmit,
   onSaveQuery,
+  onUpdateQuery,
+  activeQueryName,
 }: QueryBuilderProps) {
   const [saveName, setSaveName] = useState<string | null>(null);
 
@@ -209,13 +213,23 @@ export function QueryBuilder({
           ▶ Execute
         </button>
 
+        {onUpdateQuery && activeQueryName && saveName === null && (
+          <button
+            type="button"
+            onClick={onUpdateQuery}
+            className="flex items-center gap-1 font-mono text-xs text-accent px-2 py-1.5 rounded-[5px] bg-accent-dim border border-accent-line cursor-pointer transition-colors"
+          >
+            <Check size={11} /> Update
+          </button>
+        )}
+
         {onSaveQuery && saveName === null && (
           <button
             type="button"
             onClick={() => setSaveName('')}
             className="flex items-center gap-1 font-mono text-xs text-muted hover:text-primary px-2 py-1.5 rounded-[5px] bg-transparent border border-line cursor-pointer transition-colors"
           >
-            <Bookmark size={11} /> Save as…
+            <Bookmark size={11} /> {activeQueryName ? 'Save as new…' : 'Save as…'}
           </button>
         )}
 

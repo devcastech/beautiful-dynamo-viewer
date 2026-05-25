@@ -17,13 +17,15 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(client))
         .invoke_handler(tauri::generate_handler![
             commands::list_aws_profiles,
             commands::set_aws_profile,
             commands::aws_sso_login,
             commands::check_aws_profile,
-            commands::query_table
+            commands::query_table,
+            commands::save_text_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

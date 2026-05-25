@@ -24,6 +24,8 @@ export interface Entity {
   name: string;
   pk: string;
   sk: string;
+  pkAttr?: string; // real base-table PK attribute name (default "PK")
+  skAttr?: string; // real base-table SK attribute name (default "SK")
   gsis: GSI[];
   attributes: string[];
   role: string;

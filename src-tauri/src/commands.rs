@@ -173,6 +173,14 @@ pub async fn query_table(
     })
 }
 
+/// Escribe `contents` en `path` (la ruta la elige el usuario en el "Guardar como…" nativo).
+/// Va por Rust en vez del plugin-fs para no lidiar con su scope de rutas permitidas.
+#[tauri::command]
+pub async fn save_text_file(path: String, contents: String) -> Result<(), AppError> {
+    std::fs::write(&path, contents)?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn list_aws_profiles() -> Result<Vec<String>, AppError> {
     let profiles = Command::new("aws")

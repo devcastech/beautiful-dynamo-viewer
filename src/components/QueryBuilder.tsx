@@ -61,8 +61,8 @@ export function QueryBuilder({
 
   function handleSubmit() {
     const pkValue = parsedPk.resolve(pkValues);
-    const pkName = activeGsi ? activeGsi.pkAttr : 'PK';
-    const skName = activeGsi ? (activeGsi.skAttr ?? 'SK') : 'SK';
+    const pkName = activeGsi ? activeGsi.pkAttr : (entity.pkAttr ?? 'PK');
+    const skName = activeGsi ? (activeGsi.skAttr ?? 'SK') : (entity.skAttr ?? 'SK');
 
     let skCondition: SkCondition | undefined;
     if (skOp !== 'none' && parsedSk.variables.length > 0) {

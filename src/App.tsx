@@ -237,16 +237,16 @@ export default function App() {
   // ---- Schema import/export ----
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  function handleExportSchema() {
+  async function handleExportSchema() {
     if (!activeSchema) return;
     const json = JSON.stringify(activeSchema, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeSchema.name.replace(/\s+/g, '-').toLowerCase()}.schema.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const path = await save({
+      defaultPath: `${activeSchema.name.replace(/\s+/g, "-").toLowerCase()}.schema.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!path) return; // user cancelled the dialog
+    await invoke("save_text_file", { path, contents: json });
   }
 
   function handleImportSchema(file: File) {

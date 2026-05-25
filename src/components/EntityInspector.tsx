@@ -113,9 +113,11 @@ export function EntityInspector({
 
         {/* Edit body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Keys (priority only — PK/SK moved to header) */}
+          {/* Keys: real base-table attribute names + priority (PK/SK patterns are in the header) */}
           <EditSection label="Keys">
-            <div className="w-24">
+            <div className="grid grid-cols-3 gap-2">
+              <LabeledInput label="pkAttr" value={draft.pkAttr ?? ''} onChange={(v) => set('pkAttr', v.trim() || undefined)} placeholder="PK" />
+              <LabeledInput label="skAttr" value={draft.skAttr ?? ''} onChange={(v) => set('skAttr', v.trim() || undefined)} placeholder="SK" />
               <LabeledInput label="Priority" type="number" value={String(draft.priority)} onChange={(v) => set('priority', Number(v))} />
             </div>
           </EditSection>

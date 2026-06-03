@@ -1,5 +1,6 @@
 use crate::error::AppError;
 use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::error::ProvideErrorMetadata;
 use aws_sdk_dynamodb::types::AttributeValue;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, process::Command};
@@ -53,7 +54,6 @@ pub async fn query_table(
     client: tauri::State<'_, Mutex<Client>>,
     params: QueryParams,
 ) -> Result<QueryResult, AppError> {
-    println!("params {:?}", params);
 
     // .lock().await obtiene acceso exclusivo al Client.
     // Devuelve un MutexGuard<Client> — cuando sale del scope se libera el lock.
@@ -141,10 +141,12 @@ pub async fn query_table(
         builder = builder.set_exclusive_start_key(Some(key));
     }
 
-    // .send().await hace la llamada real. Devuelve Result<QueryOutput, SdkError<QueryError>>.
     let response = builder.send().await.map_err(|e| {
-        println!("DynamoDB send error: {:?}", e);
-        AppError { message: format!("{:?}", e) }
+        let message = e.as_service_error()
+            .and_then(|svc| svc.message())
+            .map(|s: &str| s.to_string())
+            .unwrap_or_else(|| e.to_string());
+        AppError { message }
     })?;
 
     let last_key: Option<serde_json::Value> = response
@@ -196,7 +198,6 @@ pub async fn list_aws_profiles() -> Result<Vec<String>, AppError> {
 
 #[tauri::command]
 pub async fn aws_sso_login(profile: String) -> Result<bool, AppError> {
-    println!("sso login with {}", profile);
     let result = tokio::process::Command::new("aws")
         .arg("sso")
         .arg("login")
@@ -211,7 +212,6 @@ pub async fn aws_sso_login(profile: String) -> Result<bool, AppError> {
 
 #[tauri::command]
 pub async fn check_aws_profile(profile: String) -> Result<bool, AppError> {
-    println!("check aws profile {}", profile);
     let result = tokio::process::Command::new("aws")
         .arg("sts")
         .arg("get-caller-identity")
@@ -220,8 +220,6 @@ pub async fn check_aws_profile(profile: String) -> Result<bool, AppError> {
         .output()
         .await
         .map_err(|e| AppError::from(e))?;
-    let output = String::from_utf8_lossy(&result.stdout);
-    println!("sts get-caller-identity output: {}", output);
 
     Ok(result.status.success())
 }
@@ -232,8 +230,6 @@ pub async fn set_aws_profile(
     profile: String,
     region: Option<String>,
 ) -> Result<(), AppError> {
-    // Construir nuevo config con el perfil especificado
-    println!("setting profile {}", profile);
     use aws_config::BehaviorVersion;
     let mut loader = aws_config::defaults(BehaviorVersion::latest()).profile_name(&profile);
 
@@ -252,7 +248,6 @@ pub async fn set_aws_profile(
     // MutexGuard hace deref a &mut Client, por eso funciona la asignación con *
     let mut guard = client.lock().await;
     *guard = new_client;
-    println!("new profile setted");
 
     Ok(())
 }

@@ -42,7 +42,6 @@ export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
 
   // success
   const rows = result.status === 'success' ? result.data : [];
-  console.log('results')
   const allKeys = Array.from(
     rows.reduce((acc, row) => {
       Object.keys(row).forEach((k) => acc.add(k));

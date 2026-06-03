@@ -8,6 +8,7 @@ import { useQueryExecutor } from '../hooks/useQueryExecutor.ts';
 import { isTauriRuntime } from '../lib/dynamo.ts';
 import type { Entity, SavedQuery, SkOp } from '../types/schema.ts';
 import type { QueryParams } from '../types/query.ts';
+import { alertDialog } from '../lib/dialog.ts';
 
 export type WorkspaceTab = 'builder' | 'schema';
 
@@ -56,6 +57,7 @@ export function WorkspaceArea({
   const [skOp, setSkOp] = useState<SkOp>('none');
   const [skValues, setSkValues] = useState<Record<string, string>>({});
   const [sk2Values, setSk2Values] = useState<Record<string, string>>({});
+  const [pageSize, setPageSize] = useState<number>(25);
 
   const executor = useQueryExecutor();
 
@@ -89,7 +91,7 @@ export function WorkspaceArea({
     : null;
 
   async function handleSubmit(params: QueryParams) {
-    await executor.execute(params);
+    await executor.execute({ ...params, limit: pageSize });
   }
 
   function handleSaveQuery(name: string) {
@@ -245,6 +247,19 @@ export function WorkspaceArea({
             <span id="results-header" className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted">
               Results
             </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <label htmlFor="page-size" className="font-mono text-[10px] text-muted uppercase tracking-[0.06em]">page</label>
+              <select
+                id="page-size"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="bg-elevated border border-line rounded text-primary font-mono text-[10px] px-1.5 py-[2px] cursor-pointer outline-none"
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
             <span aria-live="polite" className="font-mono text-[11px] sr-only">
               {executor.result.status === 'loading' && 'Query running…'}
               {executor.result.status === 'success' && `Query complete: ${executor.result.data.length} items`}

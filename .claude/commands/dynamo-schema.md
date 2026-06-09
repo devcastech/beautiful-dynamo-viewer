@@ -1,4 +1,4 @@
-Read the files provided in $ARGUMENTS and generate a schema entry for `src/data/schema.ts` in this project.
+Read the files provided in $ARGUMENTS and generate a schema JSON for this project. The output is the legacy (v1) schema format, which the app's *Import from JSON* accepts and migrates automatically — save it to a `.json` file and import it from the top bar.
 
 ## What to do
 

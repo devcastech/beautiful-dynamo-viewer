@@ -1,146 +1,163 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
-import type { DynamoTable } from '../types/schema.ts';
+import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
+import { Modal } from './ui/Modal.tsx';
+import { Button, IconButton } from './ui/Button.tsx';
+import { Field, Input, TextArea } from './ui/Input.tsx';
+import { DEFAULT_KEYS, SCHEMA_VERSION, type IndexDef, type TableSchema } from '../domain/schema/types.ts';
 
 interface SchemaModalProps {
   mode: 'add' | 'edit';
-  initial?: DynamoTable;
-  onConfirm: (schema: DynamoTable) => void;
+  initial?: TableSchema;
+  onConfirm: (schema: TableSchema) => void;
   onClose: () => void;
 }
 
 export function SchemaModal({ mode, initial, onConfirm, onClose }: SchemaModalProps) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [table, setTable] = useState(initial?.table ?? '');
-  const [story, setStory] = useState(initial?.story ?? '');
-  const nameRef = useRef<HTMLInputElement>(null);
+  const [tableName, setTableName] = useState(initial?.tableName ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [keys, setKeys] = useState(initial?.keys ?? DEFAULT_KEYS);
+  const [indexes, setIndexes] = useState<IndexDef[]>(initial?.indexes ?? []);
 
-  useEffect(() => {
-    nameRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const canConfirm =
+    name.trim() !== '' &&
+    tableName.trim() !== '' &&
+    keys.pk.trim() !== '' &&
+    indexes.every((d) => d.name.trim() !== '' && d.pkAttr.trim() !== '');
 
   function handleConfirm() {
-    if (!name.trim() || !table.trim()) return;
+    if (!canConfirm) return;
     onConfirm({
-      ...(initial ?? { entities: [] }),
+      version: SCHEMA_VERSION,
+      id: initial?.id ?? crypto.randomUUID(),
+      entities: initial?.entities ?? [],
+      queries: initial?.queries ?? [],
       name: name.trim(),
-      table: table.trim(),
-      story: story.trim(),
+      tableName: tableName.trim(),
+      description: description.trim(),
+      keys: { pk: keys.pk.trim(), sk: keys.sk.trim() || 'SK' },
+      indexes: indexes.map((d) => ({
+        name: d.name.trim(),
+        pkAttr: d.pkAttr.trim(),
+        skAttr: d.skAttr?.trim() || undefined,
+      })),
     });
   }
 
+  function updateIndex(i: number, patch: Partial<IndexDef>) {
+    setIndexes((list) => list.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="bg-surface border border-line rounded-xl shadow-2xl w-[440px] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-line bg-elevated">
-          <span className="font-mono text-[11px] font-semibold tracking-[0.1em] uppercase text-muted">
-            {mode === 'add' ? 'New Schema' : 'Edit Schema'}
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-muted hover:text-primary transition-colors cursor-pointer bg-transparent border-0"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Form */}
-        <div className="px-5 py-4 flex flex-col gap-3">
-          <Field label="Schema name" required>
-            <input
-              ref={nameRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-              placeholder="e.g. MyService Prod"
-              className={INPUT_CLS}
-              spellCheck={false}
-            />
-          </Field>
-
-          <Field label="DynamoDB table" required hint="Connection param — actual table name to query">
-            <input
-              value={table}
-              onChange={(e) => setTable(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-              placeholder="e.g. MyServiceTable-prod"
-              className={INPUT_CLS}
-              spellCheck={false}
-            />
-          </Field>
-
-          <Field label="Description">
-            <textarea
-              value={story}
-              onChange={(e) => setStory(e.target.value)}
-              placeholder="What data lives here and how to read it…"
-              rows={3}
-              className={`${INPUT_CLS} resize-none`}
-              spellCheck={false}
-            />
-          </Field>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-line bg-elevated">
-          <button
-            type="button"
-            onClick={onClose}
-            className="font-mono text-xs text-muted hover:text-primary px-3 py-1.5 rounded-[5px] bg-transparent border border-line cursor-pointer transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!name.trim() || !table.trim()}
-            className="font-mono text-xs text-primary px-3 py-1.5 rounded-[5px] bg-accent-dim border border-accent-line cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+    <Modal
+      title={mode === 'add' ? 'New schema' : 'Edit schema'}
+      onClose={onClose}
+      width={480}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleConfirm} disabled={!canConfirm}>
             {mode === 'add' ? 'Create' : 'Save'}
-          </button>
+          </Button>
+        </>
+      }
+    >
+      <Field label="Schema name" required hint="Display label — how this model appears in the selector.">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleConfirm();
+          }}
+          placeholder="e.g. MyService Prod"
+          autoFocus
+        />
+      </Field>
+
+      <Field label="DynamoDB table" required hint="The actual table name queries run against.">
+        <Input
+          value={tableName}
+          onChange={(e) => setTableName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleConfirm();
+          }}
+          placeholder="e.g. MyServiceTable-prod"
+        />
+      </Field>
+
+      <Field label="Description">
+        <TextArea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What data lives here and how to read it…"
+          rows={2}
+        />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="PK attribute" required hint="Physical partition key attribute.">
+          <Input
+            value={keys.pk}
+            onChange={(e) => setKeys((k) => ({ ...k, pk: e.target.value }))}
+            placeholder="PK"
+          />
+        </Field>
+        <Field label="SK attribute" hint="Physical sort key attribute.">
+          <Input
+            value={keys.sk}
+            onChange={(e) => setKeys((k) => ({ ...k, sk: e.target.value }))}
+            placeholder="SK"
+          />
+        </Field>
+      </div>
+
+      {mode === 'edit' && (
+        <div className="flex flex-col gap-1.5">
+          <span className="micro-label">Secondary indexes (GSIs)</span>
+          {indexes.length === 0 && (
+            <span className="text-[12px] text-muted/70 font-ui">
+              None yet — they're added automatically when an entity declares an index pattern.
+            </span>
+          )}
+          {indexes.map((def, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <Input
+                value={def.name}
+                onChange={(e) => updateIndex(i, { name: e.target.value })}
+                placeholder="GSI1"
+                aria-label="Index name"
+                className="w-36 text-accent"
+              />
+              <Input
+                value={def.pkAttr}
+                onChange={(e) => updateIndex(i, { pkAttr: e.target.value })}
+                placeholder="GSI1PK"
+                aria-label="Index PK attribute"
+              />
+              <Input
+                value={def.skAttr ?? ''}
+                onChange={(e) => updateIndex(i, { skAttr: e.target.value })}
+                placeholder="GSI1SK (optional)"
+                aria-label="Index SK attribute"
+              />
+              <IconButton
+                label={`Remove index ${def.name}`}
+                danger
+                onClick={() => setIndexes((list) => list.filter((_, idx) => idx !== i))}
+              >
+                <X size={12} aria-hidden="true" />
+              </IconButton>
+            </div>
+          ))}
+          <Button
+            onClick={() => setIndexes((list) => [...list, { name: '', pkAttr: '', skAttr: '' }])}
+            icon={<Plus size={11} />}
+            className="self-start mt-1"
+          >
+            Add index
+          </Button>
         </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }
-
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline gap-1">
-        <span className="font-mono text-[11px] font-semibold text-muted uppercase tracking-[0.08em]">
-          {label}
-        </span>
-        {required && <span className="text-accent text-[11px]">*</span>}
-      </div>
-      {hint && <span className="text-[11px] text-muted/70 font-ui">{hint}</span>}
-      {children}
-    </div>
-  );
-}
-
-const INPUT_CLS =
-  'bg-canvas border border-line rounded-[5px] text-primary font-mono text-xs px-2 py-[5px] outline-none w-full focus:border-accent/50 transition-colors';

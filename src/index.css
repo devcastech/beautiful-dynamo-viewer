@@ -27,33 +27,42 @@
 
   /* State tokens */
   --color-ok: var(--success);
+  --color-ok-dim: var(--success-dim);
   --color-err: var(--error);
   --color-err-dim: var(--error-dim);
 }
 
 :root {
   color-scheme: dark;
-  --bg-base: #0C0E14;
-  --bg-surface: #131620;
-  --bg-elevated: #1A1E2A;
-  --bg-hover: #1E2333;
-  --border: #2D3449;
-  --border-subtle: #222840;
 
-  /* Text — WCAG AA compliant (≥4.5:1 on all dark surfaces) */
-  --text-primary: #EEF2FF;    /* L≈0.84, ratio >15:1 on base */
-  --text-secondary: #A8B8D8;  /* L≈0.44, ratio ~8:1 on base  */
-  --text-muted: #7B8BAB;      /* L≈0.26, ratio ~5.6:1 on base (was #475569 = 2.7:1 FAIL) */
+  /* Recessed canvas → raised panels: three steps of slate blue.
+     Kept deliberately on the lighter end of "dark" — readability first. */
+  --bg-base: #161a26;
+  --bg-surface: #1e2333;
+  --bg-elevated: #262d42;
+  --bg-hover: #2e364f;
 
-  --accent: #F59E0B;
-  --accent-dim: rgba(245, 158, 11, 0.12);
-  --accent-border: rgba(245, 158, 11, 0.35);
-  --success: #10B981;
-  --error: #EF4444;
-  --error-dim: rgba(239, 68, 68, 0.1);
+  --border: #3d4664;
+  --border-subtle: #2e3650;
 
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  --font-ui: 'DM Sans', system-ui, sans-serif;
+  /* Text — comfortably above WCAG AA on all surfaces */
+  --text-primary: #f4f7ff;
+  --text-secondary: #c5d1ea;
+  --text-muted: #9aaac9;
+
+  /* Amber phosphor — the single hot color of the instrument */
+  --accent: #ffb02e;
+  --accent-dim: rgba(255, 176, 46, 0.14);
+  --accent-border: rgba(255, 176, 46, 0.4);
+  --accent-glow: rgba(255, 176, 46, 0.2);
+
+  --success: #3fe2a4;
+  --success-dim: rgba(63, 226, 164, 0.12);
+  --error: #ff7385;
+  --error-dim: rgba(255, 115, 133, 0.12);
+
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --font-ui: "IBM Plex Sans", system-ui, sans-serif;
 }
 
 * {
@@ -74,6 +83,19 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
+/* Desktop app: text selection only where it carries data */
+body {
+  user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+pre,
+code,
+td {
+  user-select: text;
+}
+
 /* Focus — visible ring for keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -91,7 +113,7 @@ input:focus-visible {
 /* Thin dark scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2A3045 transparent;
+  scrollbar-color: #424d6e transparent;
 }
 *::-webkit-scrollbar {
   width: 5px;
@@ -101,16 +123,18 @@ input:focus-visible {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2A3045;
+  background: #424d6e;
   border-radius: 3px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #374061;
+  background: #55628a;
 }
 
-/* Pattern display — literals secondary, variables amber */
+/* ---- Composition utilities ------------------------------------------- */
+
+/* Key patterns: literals recede, <variables> burn amber */
 .pattern-literal {
-  color: var(--text-secondary);  /* #A8B8D8 — passes AA */
+  color: var(--text-secondary);
   font-family: var(--font-mono);
 }
 .pattern-variable {
@@ -118,18 +142,91 @@ input:focus-visible {
   font-family: var(--font-mono);
 }
 
-/* Dot grid background for query panel */
+/* Blueprint dot grid for working surfaces */
 .dot-grid {
-  background-color: #141828;
-  background-image: radial-gradient(circle, #2A3352 1.2px, transparent 1.2px);
-  background-size: 20px 20px;
+  background-color: #1a1f2e;
+  background-image: radial-gradient(circle, #303a5a 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
+/* Micro-label: the uppercase mono captions used across the instrument */
+.micro-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---- Motion ------------------------------------------------------------ */
+
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
-  animation: fadeSlideIn 0.2s ease-out forwards;
+  animation: fadeSlideIn 0.18s ease-out both;
+}
+
+/* Sidebar rows cascade in on schema switch */
+.animate-cascade {
+  animation: fadeSlideIn 0.22s ease-out both;
+}
+
+@keyframes drawerIn {
+  from {
+    opacity: 0.4;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-drawer-in {
+  animation: drawerIn 0.2s cubic-bezier(0.25, 1, 0.35, 1) both;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-backdrop-in {
+  animation: backdropIn 0.15s ease-out both;
+}
+
+/* Status LED pulse while checking credentials */
+@keyframes ledPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-led-pulse {
+  animation: ledPulse 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-cascade,
+  .animate-drawer-in,
+  .animate-backdrop-in,
+  .animate-led-pulse {
+    animation: none;
+  }
 }

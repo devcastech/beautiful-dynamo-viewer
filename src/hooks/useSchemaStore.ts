@@ -1,53 +1,109 @@
-import { useState } from 'react';
-import type { DynamoTable, Entity } from '../domain/schema/types.ts';
-import type { SchemaRepository } from '../ports/SchemaRepository.ts';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as ops from '../domain/schema/operations.ts';
+import type { Entity, SavedQuery, TableSchema } from '../domain/schema/types.ts';
+import type { SchemaRepository } from '../services/storage.ts';
+import { seedSchemas } from '../data/seed.ts';
 
+const SAVE_DEBOUNCE_MS = 400;
+
+/**
+ * Owns the schema collection: loads it from the repository on mount (seeding
+ * example schemas on first run), persists every mutation with a debounce, and
+ * exposes pure-domain operations bound to the active schema.
+ */
 export function useSchemaStore(repo: SchemaRepository) {
-  const [schemas, setSchemas] = useState<DynamoTable[]>(() => repo.load());
-  const [activeIdx, setActiveIdxState] = useState(0);
+  const [schemas, setSchemas] = useState<TableSchema[] | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const boundedIdx = Math.max(0, Math.min(activeIdx, schemas.length - 1));
-  const activeSchema = schemas[boundedIdx] ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    repo
+      .load()
+      .then((stored) => {
+        if (cancelled) return;
+        const initial = stored ?? seedSchemas();
+        setSchemas(initial);
+        setActiveId(initial[0]?.id ?? null);
+        if (stored === null && initial.length > 0) void repo.save(initial);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Don't seed over a corrupt file — surface the error and start empty
+        // so the user's workspace.json stays untouched for manual recovery.
+        setLoadError(err instanceof Error ? err.message : String(err));
+        setSchemas([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [repo]);
 
-  function mutate(next: DynamoTable[]) {
-    setSchemas(next);
-    repo.save(next);
-  }
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mutate = useCallback(
+    (next: TableSchema[]) => {
+      setSchemas(next);
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        repo.save(next).catch((err: unknown) => console.error('Failed to save workspace:', err));
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [repo],
+  );
 
-  function setActiveIdx(idx: number) {
-    setActiveIdxState(Math.max(0, Math.min(idx, schemas.length - 1)));
+  const loading = schemas === null;
+  const list = schemas ?? [];
+  const activeSchema = list.find((s) => s.id === activeId) ?? list[0] ?? null;
+
+  function withActive(fn: (schemaId: string) => TableSchema[]) {
+    if (!activeSchema) return;
+    mutate(fn(activeSchema.id));
   }
 
   return {
-    schemas,
-    activeIdx: boundedIdx,
+    loading,
+    loadError,
+    schemas: list,
     activeSchema,
-    setActiveIdx,
-    addSchema(schema: DynamoTable) {
-      const next = ops.addSchema(schemas, schema);
-      mutate(next);
-      setActiveIdxState(next.length - 1);
+    setActiveId,
+
+    addSchema(schema: TableSchema) {
+      mutate(ops.addSchema(list, schema));
+      setActiveId(schema.id);
     },
-    updateSchema(patch: Partial<DynamoTable>) {
-      mutate(ops.updateSchema(schemas, boundedIdx, patch));
+    updateSchema(patch: Partial<Omit<TableSchema, 'id' | 'version'>>) {
+      withActive((id) => ops.updateSchema(list, id, patch));
     },
     deleteSchema() {
-      const { schemas: next, newIdx } = ops.deleteSchema(schemas, boundedIdx);
-      mutate(next);
-      setActiveIdxState(newIdx);
-    },
-    addEntity(entity: Entity) {
       if (!activeSchema) return;
-      mutate(schemas.map((s, i) => (i === boundedIdx ? ops.addEntity(s, entity) : s)));
+      const next = ops.deleteSchema(list, activeSchema.id);
+      mutate(next);
+      setActiveId(next[0]?.id ?? null);
+    },
+
+    addEntity(entity: Entity) {
+      withActive((id) => ops.addEntity(list, id, entity));
     },
     updateEntity(oldName: string, entity: Entity) {
-      if (!activeSchema) return;
-      mutate(schemas.map((s, i) => (i === boundedIdx ? ops.updateEntity(s, oldName, entity) : s)));
+      withActive((id) => ops.updateEntity(list, id, oldName, entity));
     },
     deleteEntity(entityName: string) {
-      if (!activeSchema) return;
-      mutate(schemas.map((s, i) => (i === boundedIdx ? ops.deleteEntity(s, entityName) : s)));
+      withActive((id) => ops.deleteEntity(list, id, entityName));
+    },
+
+    addQuery(query: SavedQuery) {
+      withActive((id) => ops.addQuery(list, id, query));
+    },
+    updateQuery(query: SavedQuery) {
+      withActive((id) => ops.updateQuery(list, id, query));
+    },
+    renameQuery(queryId: string, name: string) {
+      withActive((id) => ops.renameQuery(list, id, queryId, name));
+    },
+    deleteQuery(queryId: string) {
+      withActive((id) => ops.deleteQuery(list, id, queryId));
     },
   };
 }
+
+export type SchemaStore = ReturnType<typeof useSchemaStore>;

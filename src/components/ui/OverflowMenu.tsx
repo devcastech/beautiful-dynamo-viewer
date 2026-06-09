@@ -38,7 +38,6 @@ export function OverflowMenu({ items, ariaLabel = 'More actions' }: OverflowMenu
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKey);
-    // Auto-focus first menu item on open
     firstItemRef.current?.focus();
 
     return () => {
@@ -64,7 +63,7 @@ export function OverflowMenu({ items, ariaLabel = 'More actions' }: OverflowMenu
         <div
           role="menu"
           aria-label={ariaLabel}
-          className="absolute right-0 top-full mt-1 z-20 bg-elevated border border-line rounded-md shadow-xl py-1 min-w-[170px]"
+          className="absolute right-0 top-full mt-1 z-20 bg-elevated border border-line rounded-md shadow-xl py-1 min-w-[170px] animate-fade-in"
         >
           {items.map((item, i) => (
             <button
@@ -73,10 +72,13 @@ export function OverflowMenu({ items, ariaLabel = 'More actions' }: OverflowMenu
               type="button"
               role="menuitem"
               disabled={item.disabled}
-              onClick={() => { item.onClick(); setOpen(false); }}
+              onClick={() => {
+                item.onClick();
+                setOpen(false);
+              }}
               className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-mono cursor-pointer bg-transparent border-0 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 item.danger
-                  ? 'text-red-400 hover:bg-red-500/10'
+                  ? 'text-err/90 hover:bg-err-dim'
                   : 'text-secondary hover:bg-hovered hover:text-primary'
               }`}
             >

@@ -25,7 +25,9 @@ pub fn run() {
             commands::aws_sso_login,
             commands::check_aws_profile,
             commands::query_table,
-            commands::save_text_file
+            commands::save_text_file,
+            commands::load_workspace,
+            commands::save_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

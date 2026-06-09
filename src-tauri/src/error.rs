@@ -23,6 +23,12 @@ impl std::fmt::Display for AppError {
     }
 }
 
+impl From<tauri::Error> for AppError {
+    fn from(e: tauri::Error) -> Self {
+        AppError { message: e.to_string() }
+    }
+}
+
 impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
         AppError { message: e.to_string() }

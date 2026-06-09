@@ -1,14 +1,40 @@
-import { useState } from 'react';
-import type { QueryResult } from '../types/query.ts';
+import { Fragment, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { Button } from './ui/Button.tsx';
+import type { QueryResult } from '../hooks/useQueryExecutor.ts';
 
 interface QueryResultsProps {
   result: QueryResult;
+  /** Physical key attributes, highlighted and pinned first in the table. */
+  keyAttrs: string[];
   onNext?: () => void;
   onPrev?: () => void;
 }
 
-export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
+export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsProps) {
   const [view, setView] = useState<'table' | 'json'>('table');
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  // Collapse expansion when a new result lands
+  useEffect(() => {
+    setExpandedRow(null);
+  }, [result]);
+
+  useEffect(() => {
+    if (copied === null) return;
+    const t = setTimeout(() => setCopied(null), 1200);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  async function copyText(key: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+    } catch {
+      // Clipboard unavailable — ignore.
+    }
+  }
 
   if (result.status === 'idle') {
     return (
@@ -20,7 +46,7 @@ export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
 
   if (result.status === 'loading') {
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5" role="status" aria-label="Loading results">
         {[...Array(3)].map((_, i) => (
           <div
             key={i}
@@ -34,14 +60,26 @@ export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
 
   if (result.status === 'error') {
     return (
-      <div className="py-2.5 px-3.5 font-mono text-xs text-err bg-err-dim border border-[rgba(239,68,68,0.2)] rounded-md">
+      <div className="py-2.5 px-3.5 font-mono text-xs text-err bg-err-dim border border-err/20 rounded-md">
         {result.error ?? 'Unknown error'}
       </div>
     );
   }
 
-  // success
-  const rows = result.status === 'success' ? result.data : [];
+  const rows = result.data;
+
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 h-[100px] font-mono text-xs">
+        <span className="text-secondary">Query matched 0 items</span>
+        <span className="text-muted">
+          The keys are valid but nothing lives there
+          {result.durationMs !== undefined && ` · ${result.durationMs}ms`}
+        </span>
+      </div>
+    );
+  }
+
   const allKeys = Array.from(
     rows.reduce((acc, row) => {
       Object.keys(row).forEach((k) => acc.add(k));
@@ -49,10 +87,9 @@ export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
     }, new Set<string>()),
   );
 
-  const priorityKeys = ['PK', 'SK', 'pk', 'sk'];
   const columns = [
-    ...priorityKeys.filter((k) => allKeys.includes(k)),
-    ...allKeys.filter((k) => !priorityKeys.includes(k)).sort(),
+    ...keyAttrs.filter((k) => allKeys.includes(k)),
+    ...allKeys.filter((k) => !keyAttrs.includes(k)).sort(),
   ];
 
   return (
@@ -65,66 +102,116 @@ export function QueryResults({ result, onNext, onPrev }: QueryResultsProps) {
             <span className="text-muted ml-1.5">· {result.durationMs}ms</span>
           )}
         </span>
-        <div className="flex border border-line rounded overflow-hidden">
-          <ViewBtn active={view === 'table'} onClick={() => setView('table')}>Table</ViewBtn>
-          <ViewBtn active={view === 'json'} onClick={() => setView('json')}>JSON</ViewBtn>
+        <div className="flex items-center gap-2">
+          {copied && (
+            <span className="font-mono text-[11px] text-ok animate-fade-in" aria-live="polite">
+              copied ✓
+            </span>
+          )}
+          <div className="flex border border-line rounded overflow-hidden">
+            <ViewBtn active={view === 'table'} onClick={() => setView('table')}>Table</ViewBtn>
+            <ViewBtn active={view === 'json'} onClick={() => setView('json')}>JSON</ViewBtn>
+          </div>
         </div>
       </div>
 
       {view === 'table' ? (
         <div className="overflow-x-auto border border-line rounded-md">
-          <table className="min-w-full border-collapse font-mono text-[11px]">
+          <table className="min-w-full border-collapse font-mono text-[12px]">
             <thead>
               <tr className="bg-elevated">
+                <th className="w-6 border-b border-line" aria-label="Expand" />
                 {columns.map((col) => (
-                  <th key={col} className="py-1.5 px-3 text-left font-semibold text-muted whitespace-nowrap border-b border-line tracking-[0.05em]">
+                  <th
+                    key={col}
+                    className="py-1.5 px-3 text-left font-semibold text-muted whitespace-nowrap border-b border-line tracking-[0.05em]"
+                  >
                     {col}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, i) => (
-                <tr key={i} className="border-b border-line-dim hover:bg-elevated transition-colors">
-                  {columns.map((col) => {
-                    const val = row[col];
-                    const display =
-                      val === undefined ? '' : typeof val === 'object' ? JSON.stringify(val) : String(val);
-                    const isPkSk = col === 'PK' || col === 'SK' || col === 'pk' || col === 'sk';
-                    return (
-                      <td key={col} className={`py-1.5 px-3 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap ${isPkSk ? 'text-accent' : 'text-secondary'}`}>
-                        {display}
+              {rows.map((row, i) => {
+                const isExpanded = expandedRow === i;
+                return (
+                  <Fragment key={i}>
+                    <tr
+                      onClick={() => setExpandedRow(isExpanded ? null : i)}
+                      aria-expanded={isExpanded}
+                      className={`border-b border-line-dim cursor-pointer transition-colors ${
+                        isExpanded ? 'bg-elevated' : 'hover:bg-elevated'
+                      }`}
+                    >
+                      <td className="pl-2 text-muted/60 select-none" aria-hidden="true">
+                        {isExpanded ? '▾' : '▸'}
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                      {columns.map((col) => {
+                        const val = row[col];
+                        const display =
+                          val === undefined ? '' : typeof val === 'object' ? JSON.stringify(val) : String(val);
+                        const isKey = keyAttrs.includes(col);
+                        return (
+                          <td
+                            key={col}
+                            title={display ? `${display}\n(click row to expand · ⌥click to copy)` : undefined}
+                            onClick={(e) => {
+                              if (e.altKey) {
+                                e.stopPropagation();
+                                void copyText(`${i}:${col}`, display);
+                              }
+                            }}
+                            className={`py-1.5 px-3 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap ${
+                              copied === `${i}:${col}` ? 'text-ok' : isKey ? 'text-accent' : 'text-secondary'
+                            }`}
+                          >
+                            {display}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {isExpanded && (
+                      <tr className="border-b border-line-dim bg-canvas/60">
+                        <td colSpan={columns.length + 1} className="p-0">
+                          <div className="relative px-4 py-3 animate-fade-in">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void copyText(`row:${i}`, JSON.stringify(row, null, 2));
+                              }}
+                              className="absolute right-3 top-2.5 inline-flex items-center gap-1 font-mono text-[11px] text-muted hover:text-accent bg-elevated border border-line rounded px-2 py-1 cursor-pointer transition-colors"
+                            >
+                              <Copy size={10} aria-hidden="true" />
+                              {copied === `row:${i}` ? 'copied ✓' : 'copy item'}
+                            </button>
+                            <pre className="m-0 font-mono text-[12px] text-secondary leading-relaxed overflow-x-auto max-h-[300px]">
+                              {JSON.stringify(row, null, 2)}
+                            </pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
-        <pre className="bg-elevated border border-line rounded-md p-[14px] overflow-auto max-h-[400px] font-mono text-[11px] text-secondary m-0 leading-relaxed">
+        <pre className="bg-elevated border border-line rounded-md p-[14px] overflow-auto max-h-[400px] font-mono text-[12px] text-secondary m-0 leading-relaxed">
           {JSON.stringify(rows, null, 2)}
         </pre>
       )}
+
       {(onPrev || onNext) && (
-        <div className="flex items-center justify-between mt-3">
-          <button
-            type="button"
-            onClick={onPrev}
-            disabled={!onPrev}
-            className="font-mono text-xs px-4 py-1.5 border border-line rounded hover:border-accent hover:text-accent text-muted transition-colors cursor-pointer bg-transparent disabled:opacity-20 disabled:cursor-not-allowed"
-          >
-            ← Prev
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!onNext}
-            className="font-mono text-xs px-4 py-1.5 border border-line rounded hover:border-accent hover:text-accent text-muted transition-colors cursor-pointer bg-transparent disabled:opacity-20 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
+        <div className="flex items-center justify-between mt-1">
+          <Button onClick={onPrev} disabled={!onPrev} icon={<ChevronLeft size={12} />}>
+            Prev
+          </Button>
+          <Button onClick={onNext} disabled={!onNext}>
+            Next <ChevronRight size={12} aria-hidden="true" />
+          </Button>
         </div>
       )}
     </div>
@@ -136,8 +223,9 @@ function ViewBtn({ active, onClick, children }: { active: boolean; onClick: () =
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`py-[3px] px-[9px] font-mono text-xs border-0 cursor-pointer transition-all ${
-        active ? 'bg-accent text-canvas' : 'bg-transparent text-muted'
+        active ? 'bg-accent text-canvas' : 'bg-transparent text-muted hover:text-secondary'
       }`}
     >
       {children}

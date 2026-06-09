@@ -1,7 +1,20 @@
-import type { QueryParams } from '../types/query.ts';
+import { isTauriRuntime } from './runtime.ts';
 
-export const isTauriRuntime = (): boolean =>
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+export type SkCondition =
+  | { op: 'Eq'; value: string }
+  | { op: 'BeginsWith'; value: string }
+  | { op: 'Between'; value: { from: string; to: string } };
+
+export interface QueryParams {
+  table: string;
+  pkName: string;
+  pkValue: string;
+  skName?: string;
+  skCondition?: SkCondition;
+  indexName?: string;
+  limit?: number;
+  exclusiveStartKey?: Record<string, unknown>;
+}
 
 interface BackendQueryResult {
   items: Record<string, unknown>[];

@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "beautiful-dynamo-viewer",
         "width": 2000,
-        "height": 1200
+        "height": 1200,
+        "decorations": false
       }
     ],
     "security": {

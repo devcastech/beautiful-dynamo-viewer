@@ -4,6 +4,8 @@ import { OverflowMenu } from './ui/OverflowMenu.tsx';
 import { IconButton } from './ui/Button.tsx';
 import { Select } from './ui/Select.tsx';
 import { ConnectionMenu } from './ConnectionMenu.tsx';
+import { WindowControls } from './WindowControls.tsx';
+import { isMacOS } from '../services/runtime.ts';
 import { type AwsConnection } from '../hooks/useAwsConnection.ts';
 import type { TableSchema } from '../domain/schema/types.ts';
 
@@ -40,9 +42,13 @@ export function TopBar({
   const importInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <header className="flex items-center gap-3 px-4 h-12 shrink-0 border-b border-line-dim bg-surface/60">
-      {/* Brand */}
-      <div className="flex items-center gap-2 shrink-0">
+    <header
+      data-tauri-drag-region
+      className={`flex items-center gap-3 h-12 shrink-0 border-b border-line-dim bg-surface/60 pr-2 ${
+        isMacOS() ? 'pl-19.5' : 'pl-4'
+      }`}
+    >
+      <div data-tauri-drag-region className="flex items-center gap-2 shrink-0">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <rect x="2" y="1" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.9" />
           <rect x="2" y="6" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.55" />
@@ -101,6 +107,8 @@ export function TopBar({
       </div>
 
       <ConnectionMenu aws={aws} tableName={tableName} onTableNameChange={onTableNameChange} />
+
+      <WindowControls />
     </header>
   );
 }

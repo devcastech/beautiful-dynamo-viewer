@@ -12,7 +12,6 @@ import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import "./index.css";
 
-// Apply the saved theme before first paint to avoid a flash.
 applyStoredTheme();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

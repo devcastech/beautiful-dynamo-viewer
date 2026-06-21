@@ -6,6 +6,7 @@ import { Select } from './ui/Select.tsx';
 import { IconButton } from './ui/Button.tsx';
 import type { Entity, SkOp, TableSchema } from '../domain/schema/types.ts';
 import type { QueryParams, SkCondition } from '../services/dynamo.ts';
+import { isMacOS } from '../services/runtime.ts';
 
 interface QueryBuilderProps {
   schema: TableSchema;
@@ -27,6 +28,7 @@ interface QueryBuilderProps {
   onSaveQuery?: (name: string) => void;
   onUpdateQuery?: () => void;
   activeQueryName?: string;
+  isLoading?: boolean;
 }
 
 const VALUE_INPUT_CLS =
@@ -65,6 +67,7 @@ export function QueryBuilder({
   onSaveQuery,
   onUpdateQuery,
   activeQueryName,
+  isLoading
 }: QueryBuilderProps) {
   const [saveName, setSaveName] = useState<string | null>(null);
 
@@ -84,7 +87,7 @@ export function QueryBuilder({
 
   const pkFilled = parsedPk.variables.every((v) => (pkValues[v] ?? '').trim() !== '');
   const skFilled = skOp === 'none' || parsedSk.variables.every((v) => (skValues[v] ?? '').trim() !== '');
-  const canSubmit = pkFilled && skFilled && !executeDisabledReason;
+  const canSubmit = pkFilled && skFilled && !executeDisabledReason && !isLoading;
 
   function buildParams(): QueryParams {
     const pkValue = parsedPk.resolve(pkValues);
@@ -219,7 +222,11 @@ export function QueryBuilder({
           <Play size={11} aria-hidden="true" />
           Execute
           <kbd className="font-mono text-[10px] font-normal opacity-70 border border-current/30 rounded px-1 ml-1">
-            ⌘↵
+
+            {
+              isMacOS() ? '⌘' : 'Ctrl'
+            }
+            ↵
           </kbd>
         </button>
       </div>

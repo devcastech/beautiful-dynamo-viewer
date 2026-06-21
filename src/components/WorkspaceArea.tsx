@@ -184,6 +184,7 @@ export function WorkspaceArea({
                   : undefined
               }
               activeQueryName={activeQuery?.name}
+              isLoading={executor.result.status === 'loading'}
             />
           </div>
 

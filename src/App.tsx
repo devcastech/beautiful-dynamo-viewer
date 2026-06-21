@@ -4,6 +4,7 @@ import { DatabaseZap, Plus, Upload } from 'lucide-react';
 import { TopBar } from './components/TopBar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { WorkspaceArea } from './components/WorkspaceArea.tsx';
+import { Footer } from './components/Footer.tsx';
 import { SchemaModal } from './components/SchemaModal.tsx';
 import { EntityDrawer } from './components/EntityDrawer.tsx';
 import { EmptyState } from './components/ui/EmptyState.tsx';
@@ -11,6 +12,7 @@ import { Button } from './components/ui/Button.tsx';
 import { useSchemaStore } from './hooks/useSchemaStore.ts';
 import { useAwsConnection } from './hooks/useAwsConnection.ts';
 import { useWorkspace } from './hooks/useWorkspace.ts';
+import { useTheme } from './hooks/useTheme.ts';
 import { createSchemaRepository } from './services/storage.ts';
 import { isTauriRuntime } from './services/runtime.ts';
 import { alertDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
@@ -23,6 +25,7 @@ export default function App() {
   const store = useSchemaStore(repo);
   const aws = useAwsConnection();
   const ws = useWorkspace();
+  const theme = useTheme();
 
   const [schemaModal, setSchemaModal] = useState<'add' | 'edit' | null>(null);
   const [tableOverride, setTableOverride] = useState<string | undefined>(undefined);
@@ -226,6 +229,8 @@ export default function App() {
           </Group>
         </main>
       )}
+
+      <Footer theme={theme} />
 
       {schemaModal && (
         <SchemaModal

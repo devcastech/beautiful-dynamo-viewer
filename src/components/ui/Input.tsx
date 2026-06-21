@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 
 const FIELD_CLS =
   'bg-canvas border border-line rounded-md text-primary font-mono text-xs px-2 py-[5px] outline-none w-full focus:border-accent/50 transition-colors placeholder:text-muted/50';
@@ -9,17 +9,6 @@ export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInput
 
 export function TextArea({ className = '', ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea spellCheck={false} className={`${FIELD_CLS} resize-none ${className}`} {...rest} />;
-}
-
-export function Select({ className = '', children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      className={`bg-elevated border border-line rounded-md text-primary font-mono text-xs px-2 py-[5px] cursor-pointer outline-none focus:border-accent/50 transition-colors ${className}`}
-      {...rest}
-    >
-      {children}
-    </select>
-  );
 }
 
 interface FieldProps {

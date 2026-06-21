@@ -5,7 +5,7 @@ import { EntityInspector } from './EntityInspector.tsx';
 import { QueryBuilder } from './QueryBuilder.tsx';
 import { QueryResults } from './QueryResults.tsx';
 import { EmptyState } from './ui/EmptyState.tsx';
-import { Select } from './ui/Input.tsx';
+import { Select } from './ui/Select.tsx';
 import { useQueryExecutor } from '../hooks/useQueryExecutor.ts';
 import type { WorkspaceTab } from '../hooks/useWorkspace.ts';
 import type { Entity, SavedQuery, SkOp, TableSchema } from '../domain/schema/types.ts';
@@ -50,7 +50,7 @@ export function WorkspaceArea({
   const [skOp, setSkOp] = useState<SkOp>('none');
   const [skValues, setSkValues] = useState<Record<string, string>>({});
   const [sk2Values, setSk2Values] = useState<Record<string, string>>({});
-  const [pageSize, setPageSize] = useState<number>(25);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const executor = useQueryExecutor();
 
@@ -157,36 +157,34 @@ export function WorkspaceArea({
             id="panel-query"
             aria-labelledby="tab-query"
             hidden={tab !== 'query'}
-            className={tab === 'query' ? 'flex-1 overflow-y-auto dot-grid' : ''}
+            className={tab === 'query' ? 'flex-1 min-h-0 flex flex-col' : ''}
           >
-            <div className="px-5 py-4">
-              <QueryBuilder
-                schema={schema}
-                entity={entity}
-                tableName={tableName}
-                selectedTarget={selectedTarget}
-                pkValues={pkValues}
-                skOp={skOp}
-                skValues={skValues}
-                sk2Values={sk2Values}
-                onChangeTarget={setSelectedTarget}
-                onChangePkValues={setPkValues}
-                onChangeSkOp={setSkOp}
-                onChangeSkValues={setSkValues}
-                onChangeSk2Values={setSk2Values}
-                onSubmit={handleSubmit}
-                executeDisabledReason={executeDisabledReason}
-                onSaveQuery={(name) =>
-                  onSaveQuery({ id: crypto.randomUUID(), name, ...snapshotQuery() })
-                }
-                onUpdateQuery={
-                  activeQuery
-                    ? () => onUpdateQuery({ ...activeQuery, ...snapshotQuery() })
-                    : undefined
-                }
-                activeQueryName={activeQuery?.name}
-              />
-            </div>
+            <QueryBuilder
+              schema={schema}
+              entity={entity}
+              tableName={tableName}
+              selectedTarget={selectedTarget}
+              pkValues={pkValues}
+              skOp={skOp}
+              skValues={skValues}
+              sk2Values={sk2Values}
+              onChangeTarget={setSelectedTarget}
+              onChangePkValues={setPkValues}
+              onChangeSkOp={setSkOp}
+              onChangeSkValues={setSkValues}
+              onChangeSk2Values={setSk2Values}
+              onSubmit={handleSubmit}
+              executeDisabledReason={executeDisabledReason}
+              onSaveQuery={(name) =>
+                onSaveQuery({ id: crypto.randomUUID(), name, ...snapshotQuery() })
+              }
+              onUpdateQuery={
+                activeQuery
+                  ? () => onUpdateQuery({ ...activeQuery, ...snapshotQuery() })
+                  : undefined
+              }
+              activeQueryName={activeQuery?.name}
+            />
           </div>
 
           <div
@@ -214,17 +212,15 @@ export function WorkspaceArea({
               Results
             </span>
             <div className="ml-auto flex items-center gap-1.5">
-              <label htmlFor="page-size" className="micro-label">page</label>
+              <span className="micro-label">page</span>
               <Select
-                id="page-size"
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="text-[11px] px-1.5 py-[2px]"
-              >
-                {[10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </Select>
+                ariaLabel="Results per page"
+                value={String(pageSize)}
+                onChange={(v) => setPageSize(Number(v))}
+                options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
+                align="right"
+                className="px-1.5 py-[2px]"
+              />
             </div>
             <span aria-live="polite" className="sr-only">
               {executor.result.status === 'loading' && 'Query running…'}

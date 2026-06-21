@@ -1,9 +1,10 @@
 import { useRef } from 'react';
-import { CircleAlert, Download, LoaderCircle, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { OverflowMenu } from './ui/OverflowMenu.tsx';
 import { IconButton } from './ui/Button.tsx';
-import { Input, Select } from './ui/Input.tsx';
-import { AWS_REGIONS, type AwsConnection } from '../hooks/useAwsConnection.ts';
+import { Select } from './ui/Select.tsx';
+import { ConnectionMenu } from './ConnectionMenu.tsx';
+import { type AwsConnection } from '../hooks/useAwsConnection.ts';
 import type { TableSchema } from '../domain/schema/types.ts';
 
 interface TopBarProps {
@@ -56,19 +57,16 @@ export function TopBar({
 
       {/* Schema region */}
       <div className="flex gap-1.5 items-center min-w-0" role="group" aria-label="Schema">
-        <label htmlFor="schema-selector" className="micro-label shrink-0">schema</label>
+        <span className="micro-label shrink-0">schema</span>
         <Select
-          id="schema-selector"
+          ariaLabel="Active schema"
           value={activeSchema?.id ?? ''}
-          onChange={(e) => onSelectSchema(e.target.value)}
+          onChange={onSelectSchema}
+          options={schemas.map((s) => ({ value: s.id, label: s.name }))}
+          placeholder="—"
           disabled={schemas.length === 0}
           className="max-w-44"
-        >
-          {schemas.length === 0 && <option value="">—</option>}
-          {schemas.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </Select>
+        />
         <IconButton label="New schema" onClick={onNewSchema} className="p-1.5">
           <Plus size={14} aria-hidden="true" />
         </IconButton>
@@ -102,97 +100,11 @@ export function TopBar({
         />
       </div>
 
-      <Divider />
-
-      {/* Connection region — one visual unit: table → region → profile → status */}
-      <div
-        className="ml-auto flex gap-3 items-center px-3 py-1 rounded-lg border border-line-dim bg-canvas/60"
-        role="group"
-        aria-label="AWS connection"
-      >
-        <div className="flex gap-1.5 items-center">
-          <label htmlFor="table-name" className="micro-label shrink-0">table</label>
-          <Input
-            id="table-name"
-            value={tableName}
-            onChange={(e) => onTableNameChange(e.target.value)}
-            className="w-44 py-1"
-          />
-        </div>
-
-        <div className="flex gap-1.5 items-center">
-          <label htmlFor="aws-region" className="micro-label shrink-0">region</label>
-          <Select
-            id="aws-region"
-            value={aws.region}
-            onChange={(e) => void aws.selectRegion(e.target.value)}
-            className="py-1"
-          >
-            {AWS_REGIONS.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </Select>
-        </div>
-
-        <div className="flex gap-1.5 items-center">
-          <label htmlFor="aws-profile" className="micro-label shrink-0">profile</label>
-          <Select
-            id="aws-profile"
-            value={aws.profile ?? ''}
-            onChange={(e) => void aws.selectProfile(e.target.value)}
-            className="py-1"
-          >
-            <option value="">— select —</option>
-            {aws.profiles.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </Select>
-        </div>
-
-        <ConnectionStatus aws={aws} />
-      </div>
+      <ConnectionMenu aws={aws} tableName={tableName} onTableNameChange={onTableNameChange} />
     </header>
   );
 }
 
 function Divider() {
   return <div className="w-px h-5 bg-line-dim shrink-0" aria-hidden="true" />;
-}
-
-function ConnectionStatus({ aws }: { aws: AwsConnection }) {
-  if (aws.status === 'checking') {
-    return (
-      <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted" aria-live="polite">
-        <LoaderCircle width={11} height={11} className="animate-spin" aria-hidden="true" />
-        checking…
-      </span>
-    );
-  }
-  if (!aws.profile) {
-    return (
-      <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted/60" aria-label="No profile selected">
-        <span aria-hidden="true" className="w-[7px] h-[7px] rounded-full bg-muted/40" />
-        offline
-      </span>
-    );
-  }
-  if (aws.status === 'authed') {
-    return (
-      <span className="flex items-center gap-1.5 font-mono text-[11px] text-ok" aria-live="polite">
-        <span aria-hidden="true" className="w-[7px] h-[7px] rounded-full bg-ok shadow-[0_0_8px_var(--success)]" />
-        connected
-      </span>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={() => void aws.ssoLogin()}
-      aria-label={`Sign in to AWS profile ${aws.profile}`}
-      className="flex items-center gap-1 font-mono text-[11px] text-accent hover:bg-accent-dim bg-transparent border border-accent-line rounded-md px-2 py-[3px] cursor-pointer transition-colors"
-    >
-      <CircleAlert width={11} height={11} aria-hidden="true" />
-      sign in
-    </button>
-  );
 }

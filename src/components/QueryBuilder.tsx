@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Bookmark, Check, Play, X } from 'lucide-react';
+import { Bookmark, Check, Play, RefreshCw, X } from 'lucide-react';
 import { parsePattern } from '../domain/schema/patternParser.ts';
 import { Input } from './ui/Input.tsx';
+import { Select } from './ui/Select.tsx';
 import { IconButton } from './ui/Button.tsx';
 import type { Entity, SkOp, TableSchema } from '../domain/schema/types.ts';
 import type { QueryParams, SkCondition } from '../services/dynamo.ts';
@@ -37,6 +38,13 @@ const SK_OPS: { op: SkOp; label: string }[] = [
   { op: 'BeginsWith', label: 'begins_with' },
   { op: 'Between', label: 'between' },
 ];
+
+/** Short labels for the composed-key preview in the query bar. */
+const SK_OP_LABEL: Record<Exclude<SkOp, 'none'>, string> = {
+  Eq: '=',
+  BeginsWith: 'begins_with',
+  Between: 'between',
+};
 
 export function QueryBuilder({
   schema,
@@ -130,124 +138,53 @@ export function QueryBuilder({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Index selector tabs */}
-      {entity.indexPatterns.length > 0 && (
-        <div className="flex gap-[2px] overflow-x-auto border-b border-line" role="tablist" aria-label="Query target">
-          <IndexTab label="Base table" active={selectedTarget === 'base'} onClick={() => onChangeTarget('base')} />
-          {entity.indexPatterns.map((pattern) => (
-            <IndexTab
-              key={pattern.index}
-              label={pattern.index}
-              active={selectedTarget === pattern.index}
-              onClick={() => onChangeTarget(pattern.index)}
-            />
-          ))}
-        </div>
-      )}
+    <div className="flex flex-col h-full min-h-0">
+      {/* ===== Query bar (pinned) — target · composed key · run ===== */}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-canvas/60">
+        <Select
+          ariaLabel="Query target"
+          value={selectedTarget}
+          onChange={onChangeTarget}
+          options={[
+            { value: 'base', label: 'Base table' },
+            ...entity.indexPatterns.map((pattern) => ({ value: pattern.index, label: pattern.index })),
+          ]}
+          className="shrink-0 font-semibold text-accent bg-accent-dim border-accent-line"
+        />
 
-      {/* Partition key */}
-      <PatternRow
-        label="Partition key"
-        attr={activeIndexDef ? activeIndexDef.pkAttr : schema.keys.pk}
-        segments={parsedPk.segments}
-        values={pkValues}
-        onChange={onChangePkValues}
-      />
-
-      {/* Sort key */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-baseline gap-2">
-          <span className="micro-label text-[12px]">Sort key</span>
-          <span className="font-mono text-[11px] text-muted/60">
-            {activeIndexDef ? activeIndexDef.skAttr ?? 'SK' : schema.keys.sk}
-          </span>
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {SK_OPS.map(({ op, label }) => (
-            <button
-              key={op}
-              type="button"
-              onClick={() => onChangeSkOp(op)}
-              aria-pressed={skOp === op}
-              className={`py-[3px] px-[9px] font-mono text-[12px] rounded border cursor-pointer transition-all ${
-                skOp === op
-                  ? 'border-accent bg-accent-dim text-accent'
-                  : 'border-line bg-transparent text-muted hover:text-secondary'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {skOp !== 'none' && (
-          <ValueBox
-            segments={parsedSk.segments}
-            literalFallback={activeSkPattern}
-            values={skValues}
-            onChange={onChangeSkValues}
+        <div className="flex-1 min-w-0 overflow-x-auto bg-canvas border border-line rounded-md px-2.5 py-[6px]">
+          <KeyPreview
+            pkSegments={parsedPk.segments}
+            pkValues={pkValues}
+            skOp={skOp}
+            skSegments={parsedSk.segments}
+            skValues={skValues}
+            sk2Values={sk2Values}
           />
-        )}
+        </div>
 
-        {skOp === 'Between' && parsedSk.variables.length > 0 && (
-          <>
-            <span className="font-mono text-[11px] text-muted pl-[2px]">to</span>
-            <ValueBox
-              segments={parsedSk.segments}
-              literalFallback={activeSkPattern}
-              values={sk2Values}
-              onChange={onChangeSk2Values}
-              placeholderSuffix=" (end)"
-            />
-          </>
-        )}
-      </div>
-
-      {/* Actions row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          title={executeDisabledReason}
-          className={`inline-flex items-center gap-1.5 py-2 px-4 font-mono text-xs font-semibold tracking-[0.05em] rounded-md border transition-all ${
-            canSubmit
-              ? 'bg-accent border-accent text-canvas cursor-pointer hover:shadow-[0_0_18px_var(--accent-glow)]'
-              : 'bg-transparent border-line text-muted opacity-50 cursor-not-allowed'
-          }`}
-        >
-          <Play size={11} aria-hidden="true" />
-          Execute
-          <kbd className="font-mono text-[10px] font-normal opacity-70 border border-current/30 rounded px-1 ml-1">⌘↵</kbd>
-        </button>
-
-        {executeDisabledReason && (
-          <span className="font-mono text-[12px] text-muted">{executeDisabledReason}</span>
-        )}
-
-        {onUpdateQuery && activeQueryName && saveName === null && (
-          <button
-            type="button"
-            onClick={onUpdateQuery}
-            className="flex items-center gap-1 font-mono text-xs text-accent px-2 py-1.5 rounded-[5px] bg-accent-dim border border-accent-line cursor-pointer transition-colors"
-          >
-            <Check size={11} aria-hidden="true" /> Update “{activeQueryName}”
-          </button>
-        )}
-
-        {onSaveQuery && saveName === null && (
-          <button
-            type="button"
-            onClick={() => setSaveName('')}
-            className="flex items-center gap-1 font-mono text-xs text-muted hover:text-primary px-2 py-1.5 rounded-[5px] bg-transparent border border-line cursor-pointer transition-colors"
-          >
-            <Bookmark size={11} aria-hidden="true" /> {activeQueryName ? 'Save as new…' : 'Save as…'}
-          </button>
-        )}
-
-        {onSaveQuery && saveName !== null && (
-          <div className="flex items-center gap-1">
+        {saveName === null ? (
+          <div className="shrink-0 flex items-center gap-0.5">
+            {onUpdateQuery && activeQueryName && (
+              <IconButton
+                label={`Update query “${activeQueryName}”`}
+                onClick={onUpdateQuery}
+                className="text-accent"
+              >
+                <RefreshCw size={13} aria-hidden="true" />
+              </IconButton>
+            )}
+            {onSaveQuery && (
+              <IconButton
+                label={activeQueryName ? 'Save as new query' : 'Save query'}
+                onClick={() => setSaveName('')}
+              >
+                <Bookmark size={13} aria-hidden="true" />
+              </IconButton>
+            )}
+          </div>
+        ) : (
+          <div className="shrink-0 flex items-center gap-1">
             <Input
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
@@ -257,7 +194,7 @@ export function QueryBuilder({
               }}
               placeholder="Query name…"
               autoFocus
-              className="w-44"
+              className="w-40"
             />
             <IconButton label="Confirm save" onClick={handleConfirmSave} disabled={!saveName.trim()}>
               <Check size={13} aria-hidden="true" />
@@ -267,6 +204,91 @@ export function QueryBuilder({
             </IconButton>
           </div>
         )}
+
+        <button
+          type="button"
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+          title={executeDisabledReason}
+          className={`shrink-0 inline-flex items-center gap-1.5 py-[7px] px-4 font-mono text-xs font-semibold tracking-[0.05em] rounded-md border transition-all ${
+            canSubmit
+              ? 'bg-accent border-accent text-canvas cursor-pointer hover:shadow-[0_0_18px_var(--accent-glow)]'
+              : 'bg-transparent border-line text-muted opacity-50 cursor-not-allowed'
+          }`}
+        >
+          <Play size={11} aria-hidden="true" />
+          Execute
+          <kbd className="font-mono text-[10px] font-normal opacity-70 border border-current/30 rounded px-1 ml-1">
+            ⌘↵
+          </kbd>
+        </button>
+      </div>
+
+      {/* ===== Builder fields (scroll) — the params that compose the bar ===== */}
+      <div className="flex-1 overflow-y-auto dot-grid px-5 py-4">
+        <div className="flex flex-col gap-4">
+          {/* Partition key */}
+          <PatternRow
+            label="Partition key"
+            attr={activeIndexDef ? activeIndexDef.pkAttr : schema.keys.pk}
+            segments={parsedPk.segments}
+            values={pkValues}
+            onChange={onChangePkValues}
+          />
+
+          {/* Sort key */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline gap-2">
+              <span className="micro-label text-[12px]">Sort key</span>
+              <span className="font-mono text-[11px] text-muted/60">
+                {activeIndexDef ? activeIndexDef.skAttr ?? 'SK' : schema.keys.sk}
+              </span>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {SK_OPS.map(({ op, label }) => (
+                <button
+                  key={op}
+                  type="button"
+                  onClick={() => onChangeSkOp(op)}
+                  aria-pressed={skOp === op}
+                  className={`py-[3px] px-[9px] font-mono text-[12px] rounded border cursor-pointer transition-all ${
+                    skOp === op
+                      ? 'border-accent bg-accent-dim text-accent'
+                      : 'border-line bg-transparent text-muted hover:text-secondary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {skOp !== 'none' && (
+              <ValueBox
+                segments={parsedSk.segments}
+                literalFallback={activeSkPattern}
+                values={skValues}
+                onChange={onChangeSkValues}
+              />
+            )}
+
+            {skOp === 'Between' && parsedSk.variables.length > 0 && (
+              <>
+                <span className="font-mono text-[11px] text-muted pl-[2px]">to</span>
+                <ValueBox
+                  segments={parsedSk.segments}
+                  literalFallback={activeSkPattern}
+                  values={sk2Values}
+                  onChange={onChangeSk2Values}
+                  placeholderSuffix=" (end)"
+                />
+              </>
+            )}
+          </div>
+
+          {executeDisabledReason && (
+            <span className="font-mono text-[12px] text-muted">{executeDisabledReason}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -275,6 +297,64 @@ export function QueryBuilder({
 // ---- Pieces ----
 
 type Segments = ReturnType<typeof parsePattern>['segments'];
+
+/** Read-only render of the key the query will send: filled values burn amber, empty <vars> recede. */
+function KeyPreview({
+  pkSegments,
+  pkValues,
+  skOp,
+  skSegments,
+  skValues,
+  sk2Values,
+}: {
+  pkSegments: Segments;
+  pkValues: Record<string, string>;
+  skOp: SkOp;
+  skSegments: Segments;
+  skValues: Record<string, string>;
+  sk2Values: Record<string, string>;
+}) {
+  return (
+    <span className="font-mono text-xs whitespace-nowrap">
+      <ResolvedPattern segments={pkSegments} values={pkValues} />
+      {skOp === 'none' ? (
+        <span className="text-muted/40">{'  ·  no sort condition'}</span>
+      ) : (
+        <>
+          <span className="text-muted/40">{'  ·  '}</span>
+          <span className="text-muted">{SK_OP_LABEL[skOp]}&nbsp;</span>
+          <ResolvedPattern segments={skSegments} values={skValues} />
+          {skOp === 'Between' && (
+            <>
+              <span className="text-muted">{' to '}</span>
+              <ResolvedPattern segments={skSegments} values={sk2Values} />
+            </>
+          )}
+        </>
+      )}
+    </span>
+  );
+}
+
+function ResolvedPattern({ segments, values }: { segments: Segments; values: Record<string, string> }) {
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.type === 'literal' ? (
+          <span key={i} className="text-secondary">
+            {seg.value}
+          </span>
+        ) : (values[seg.name] ?? '').trim() ? (
+          <span key={i} className="text-accent">
+            {values[seg.name]}
+          </span>
+        ) : (
+          <span key={i} className="text-muted/50">{`<${seg.name}>`}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 function PatternRow({
   label,
@@ -337,23 +417,5 @@ function ValueBox({
         )
       )}
     </div>
-  );
-}
-
-function IndexTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`py-1.5 px-3 font-mono text-xs border-0 border-b-2 bg-transparent cursor-pointer transition-all -mb-px whitespace-nowrap ${
-        active
-          ? 'font-semibold border-b-accent text-accent'
-          : 'font-normal border-b-transparent text-muted hover:text-secondary'
-      }`}
-    >
-      {label}
-    </button>
   );
 }

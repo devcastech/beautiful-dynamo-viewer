@@ -7,9 +7,11 @@ export interface PartitionGroup {
   entities: Entity[];
 }
 
-/** One accent color per partition group, assigned by group order. */
+/** One accent color per partition group, assigned by group order.
+   Medium-saturation hues that identify partitions without competing with the
+   brighter, theme-driven --accent (which signals selection/action). */
 export const GROUP_ACCENTS = [
-  '#F59E0B', '#10B981', '#38BDF8', '#FB923C', '#A78BFA', '#94A3B8',
+  '#5EA2D9', '#5BBF9B', '#C08AD9', '#D9926B', '#8AA0C0', '#C9A24B',
 ];
 
 export const accentForIndex = (i: number): string => GROUP_ACCENTS[i % GROUP_ACCENTS.length];

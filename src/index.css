@@ -35,27 +35,7 @@
 :root {
   color-scheme: dark;
 
-  /* Recessed canvas → raised panels: three steps of slate blue.
-     Kept deliberately on the lighter end of "dark" — readability first. */
-  --bg-base: #161a26;
-  --bg-surface: #1e2333;
-  --bg-elevated: #262d42;
-  --bg-hover: #2e364f;
-
-  --border: #3d4664;
-  --border-subtle: #2e3650;
-
-  /* Text — comfortably above WCAG AA on all surfaces */
-  --text-primary: #f4f7ff;
-  --text-secondary: #c5d1ea;
-  --text-muted: #9aaac9;
-
-  /* Amber phosphor — the single hot color of the instrument */
-  --accent: #ffb02e;
-  --accent-dim: rgba(255, 176, 46, 0.14);
-  --accent-border: rgba(255, 176, 46, 0.4);
-  --accent-glow: rgba(255, 176, 46, 0.2);
-
+  /* Theme-independent tokens */
   --success: #3fe2a4;
   --success-dim: rgba(63, 226, 164, 0.12);
   --error: #ff7385;
@@ -63,6 +43,139 @@
 
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
   --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+/* ---- Themes (Star Wars). Default = Chewbacca, also applied when no data-theme set. ---- */
+
+/* Chewbacca — warm neutral (stone) steps, amber accent.
+   Lighter end of "dark" deliberately — readability first. */
+:root,
+[data-theme="chewbacca"] {
+  --bg-base: #14120f;
+  --bg-surface: #1c1917;
+  --bg-elevated: #292524;
+  --bg-hover: #322d2b;
+
+  --border: #44403c;
+  --border-subtle: #33302c;
+
+  --text-primary: #f7f5f3;
+  --text-secondary: #d0c9c4;
+  --text-muted: #a39c96;
+
+  /* Amber phosphor — the single hot color of the instrument */
+  --accent: #ffb02e;
+  --accent-dim: rgba(255, 176, 46, 0.14);
+  --accent-border: rgba(255, 176, 46, 0.4);
+  --accent-glow: rgba(255, 176, 46, 0.2);
+
+  --dot-grid-bg: #181513;
+  --dot-grid-dot: #3a3531;
+  --scrollbar-thumb: #4a443f;
+  --scrollbar-thumb-hover: #5c554f;
+}
+
+/* R2-D2 — VS Code Dark+ neutral grays, faithful VS Code blue accent. */
+[data-theme="r2d2"] {
+  --bg-base: #1e1e1e;
+  --bg-surface: #252526;
+  --bg-elevated: #2d2d2d;
+  --bg-hover: #3c3c3c;
+
+  --border: #454545;
+  --border-subtle: #3c3c3c;
+
+  --text-primary: #e6e6e6;
+  --text-secondary: #d4d4d4;
+  --text-muted: #858585;
+
+  --accent: #3794ff;
+  --accent-dim: rgba(55, 148, 255, 0.14);
+  --accent-border: rgba(55, 148, 255, 0.4);
+  --accent-glow: rgba(55, 148, 255, 0.25);
+
+  --dot-grid-bg: #1a1a1a;
+  --dot-grid-dot: #333333;
+  --scrollbar-thumb: #474747;
+  --scrollbar-thumb-hover: #5a5a5a;
+}
+
+/* C-3PO — polished dark bronze with bright protocol gold. */
+[data-theme="c3po"] {
+  --bg-base: #161109;
+  --bg-surface: #1f1810;
+  --bg-elevated: #2b2316;
+  --bg-hover: #352c1c;
+
+  --border: #4a3e26;
+  --border-subtle: #352b1b;
+
+  --text-primary: #f8f2e7;
+  --text-secondary: #ddd2bd;
+  --text-muted: #a99c82;
+
+  /* Protocol-droid gold — brighter and yellower than Chewbacca's amber */
+  --accent: #ffc94d;
+  --accent-dim: rgba(255, 201, 77, 0.14);
+  --accent-border: rgba(255, 201, 77, 0.42);
+  --accent-glow: rgba(255, 201, 77, 0.22);
+
+  --dot-grid-bg: #19130a;
+  --dot-grid-dot: #3f3521;
+  --scrollbar-thumb: #4a3e26;
+  --scrollbar-thumb-hover: #5e4f30;
+}
+
+/* Darth Vader — near-black armor with a red lightsaber accent. */
+[data-theme="vader"] {
+  --bg-base: #0a0a0b;
+  --bg-surface: #141416;
+  --bg-elevated: #1c1c1f;
+  --bg-hover: #262629;
+
+  --border: #34343a;
+  --border-subtle: #232327;
+
+  --text-primary: #f4f4f6;
+  --text-secondary: #c9c9d0;
+  --text-muted: #8a8a93;
+
+  /* Sith lightsaber red */
+  --accent: #ff4040;
+  --accent-dim: rgba(255, 64, 64, 0.13);
+  --accent-border: rgba(255, 64, 64, 0.42);
+  --accent-glow: rgba(255, 64, 64, 0.28);
+
+  --dot-grid-bg: #0d0d0f;
+  --dot-grid-dot: #2a2a30;
+  --scrollbar-thumb: #34343a;
+  --scrollbar-thumb-hover: #46464e;
+}
+
+/* Yoda — dim Dagobah dusk (near-neutral, faint green) with a Force-green accent. */
+[data-theme="yoda"] {
+  --bg-base: #0f100e;
+  --bg-surface: #161814;
+  --bg-elevated: #1f211c;
+  --bg-hover: #282a24;
+
+  --border: #3a3d35;
+  --border-subtle: #282a24;
+
+  --text-primary: #f1f3ed;
+  --text-secondary: #ccd0c5;
+  --text-muted: #969a8e;
+
+  /* The Force — luminous saber green */
+  --accent: #9bd64a;
+  --accent-dim: rgba(155, 214, 74, 0.14);
+  --accent-border: rgba(155, 214, 74, 0.42);
+  --accent-glow: rgba(155, 214, 74, 0.24);
+
+  --dot-grid-bg: #121411;
+  --dot-grid-dot: #2e3129;
+  --scrollbar-thumb: #3a3d35;
+  --scrollbar-thumb-hover: #4c4f45;
 }
 
 * {
@@ -113,7 +226,7 @@ input:focus-visible {
 /* Thin dark scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #424d6e transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 *::-webkit-scrollbar {
   width: 5px;
@@ -123,11 +236,11 @@ input:focus-visible {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #424d6e;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #55628a;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ---- Composition utilities ------------------------------------------- */
@@ -144,8 +257,8 @@ input:focus-visible {
 
 /* Blueprint dot grid for working surfaces */
 .dot-grid {
-  background-color: #1a1f2e;
-  background-image: radial-gradient(circle, #303a5a 1px, transparent 1px);
+  background-color: var(--dot-grid-bg);
+  background-image: radial-gradient(circle, var(--dot-grid-dot) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 

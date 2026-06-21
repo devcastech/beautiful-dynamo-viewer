@@ -7,7 +7,7 @@ import {
   buildPartitionGroups,
   getPartitionChipLabel,
 } from '../domain/schema/grouping.ts';
-import type { SavedQuery, TableSchema } from '../domain/schema/types.ts';
+import type { Entity, IndexPattern, SavedQuery, TableSchema } from '../domain/schema/types.ts';
 
 interface SidebarProps {
   schema: TableSchema;
@@ -23,6 +23,11 @@ interface SidebarProps {
   onDeleteQuery: (id: string) => void;
 }
 
+/** A node in an expanded entity: its index patterns, then its saved queries. */
+type EntityChild =
+  | { kind: 'index'; pattern: IndexPattern }
+  | { kind: 'query'; query: SavedQuery };
+
 export function Sidebar({
   schema,
   selectedEntityName,
@@ -37,47 +42,73 @@ export function Sidebar({
   onDeleteQuery,
 }: SidebarProps) {
   const [search, setSearch] = useState('');
-  const [openSections, setOpenSections] = useState({ entities: true, queries: true });
+  const [entitiesOpen, setEntitiesOpen] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedEntities, setCollapsedEntities] = useState<Record<string, boolean>>({});
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const groups = useMemo(() => buildPartitionGroups(schema), [schema]);
   const accents = useMemo(() => accentByPartitionKey(groups), [groups]);
 
+  const queriesByEntity = useMemo(() => {
+    const map: Record<string, SavedQuery[]> = {};
+    for (const q of schema.queries) (map[q.entityName] ??= []).push(q);
+    for (const key in map) map[key].sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [schema.queries]);
+
   const term = search.trim().toLowerCase();
-  const filteredGroups = useMemo(() => {
-    if (!term) return groups;
+
+  // Entities (with their visible queries) grouped by partition, filtered by the search term.
+  const tree = useMemo(() => {
     return groups
-      .map((g) => ({
-        ...g,
-        entities: g.entities.filter(
-          (e) =>
-            e.name.toLowerCase().includes(term) ||
-            e.pk.toLowerCase().includes(term) ||
-            e.sk.toLowerCase().includes(term),
+      .map((group) => ({
+        id: group.id,
+        partitionKey: group.partitionKey,
+        entities: group.entities.reduce<{ entity: Entity; queries: SavedQuery[] }[]>(
+          (acc, entity) => {
+            const all = queriesByEntity[entity.name] ?? [];
+            const entityMatches =
+              !term ||
+              entity.name.toLowerCase().includes(term) ||
+              entity.pk.toLowerCase().includes(term) ||
+              entity.sk.toLowerCase().includes(term);
+            const matching = term
+              ? all.filter(
+                  (q) =>
+                    q.name.toLowerCase().includes(term) ||
+                    q.entityName.toLowerCase().includes(term),
+                )
+              : all;
+
+            if (entityMatches) acc.push({ entity, queries: all });
+            else if (matching.length > 0) acc.push({ entity, queries: matching });
+            return acc;
+          },
+          [],
         ),
       }))
-      .filter((g) => g.entities.length > 0);
-  }, [groups, term]);
-
-  const filteredQueries = useMemo(() => {
-    const all = schema.queries;
-    if (!term) return all;
-    return all.filter(
-      (q) => q.name.toLowerCase().includes(term) || q.entityName.toLowerCase().includes(term),
-    );
-  }, [schema.queries, term]);
-
-  const accentForEntity = (entityName: string): string => {
-    const entity = schema.entities.find((e) => e.name === entityName);
-    return (entity && accents[entity.pk]) || 'var(--accent)';
-  };
-
-  function toggleSection(name: 'entities' | 'queries') {
-    setOpenSections((s) => ({ ...s, [name]: !s[name] }));
-  }
+      .filter((group) => group.entities.length > 0);
+  }, [groups, term, queriesByEntity]);
 
   function toggleGroup(id: string) {
     setCollapsedGroups((s) => ({ ...s, [id]: !s[id] }));
+  }
+
+  function toggleEntity(name: string) {
+    setCollapsedEntities((s) => ({ ...s, [name]: !s[name] }));
+  }
+
+  function startRename(query: SavedQuery) {
+    setRenamingId(query.id);
+    setRenameValue(query.name);
+  }
+
+  function confirmRename(id: string) {
+    const name = renameValue.trim();
+    if (name) onRenameQuery(id, name);
+    setRenamingId(null);
   }
 
   return (
@@ -120,13 +151,13 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* --- Entities section --- */}
+      {/* --- Entities section (with their saved queries nested) --- */}
       <SectionHeader
         icon={<Boxes size={13} aria-hidden="true" />}
         label="Entities"
         count={schema.entities.length}
-        open={openSections.entities}
-        onToggle={() => toggleSection('entities')}
+        open={entitiesOpen}
+        onToggle={() => setEntitiesOpen((o) => !o)}
         action={
           <IconButton label="Add entity" onClick={() => onAddEntity('')}>
             <Plus size={13} aria-hidden="true" />
@@ -134,11 +165,11 @@ export function Sidebar({
         }
       />
 
-      {openSections.entities && (
-        <div className="overflow-y-auto border-b border-line-dim shrink-0" style={{ maxHeight: '55%' }}>
-          {filteredGroups.length === 0 ? (
+      {entitiesOpen && (
+        <div className="overflow-y-auto flex-1 min-h-0">
+          {tree.length === 0 ? (
             <EmptyHint>
-              {term ? 'No entities match the filter.' : (
+              {term ? 'Nothing matches the filter.' : (
                 <>
                   No entities yet.
                   <span className="block mt-1 text-muted/60">Click + to add one.</span>
@@ -146,9 +177,9 @@ export function Sidebar({
               )}
             </EmptyHint>
           ) : (
-            filteredGroups.map((group, groupIdx) => {
+            tree.map((group, groupIdx) => {
               const accent = accents[group.partitionKey];
-              const isCollapsed = !term && (collapsedGroups[group.id] ?? false);
+              const groupCollapsed = !term && (collapsedGroups[group.id] ?? false);
               const label = getPartitionChipLabel(group.partitionKey);
 
               return (
@@ -160,20 +191,15 @@ export function Sidebar({
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.id)}
-                      aria-expanded={!isCollapsed}
-                      aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${label}`}
+                      aria-expanded={!groupCollapsed}
+                      aria-label={`${groupCollapsed ? 'Expand' : 'Collapse'} ${label}`}
                       className="flex items-center gap-[6px] flex-1 min-w-0 bg-transparent border-0 cursor-pointer text-left rounded hover:bg-hovered"
                     >
                       <ChevronDown
                         width={12}
                         height={12}
                         aria-hidden="true"
-                        className={`text-muted shrink-0 transition-transform duration-150 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="w-[6px] h-[6px] rounded-full shrink-0"
-                        style={{ background: accent }}
+                        className={`text-muted shrink-0 transition-transform duration-150 ${groupCollapsed ? '-rotate-90' : 'rotate-0'}`}
                       />
                       <span className="font-mono text-[12px] text-secondary flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                         <PatternChipLabel label={label} accent={accent} />
@@ -193,25 +219,54 @@ export function Sidebar({
                   </div>
 
                   {/* Entity rows */}
-                  {!isCollapsed &&
-                    group.entities.map((entity, entityIdx) => {
+                  {!groupCollapsed &&
+                    group.entities.map(({ entity, queries }) => {
                       const isActive = selectedEntityName === entity.name;
-                      const isLast = entityIdx === group.entities.length - 1;
+                      const hasChildren = entity.indexPatterns.length > 0 || queries.length > 0;
+                      const entityCollapsed = !term && (collapsedEntities[entity.name] ?? false);
+                      const showChildren = hasChildren && !entityCollapsed;
+
+                      const children: EntityChild[] = showChildren
+                        ? [
+                            ...entity.indexPatterns.map((pattern) => ({ kind: 'index', pattern }) as const),
+                            ...queries.map((query) => ({ kind: 'query', query }) as const),
+                          ]
+                        : [];
+
                       return (
                         <div key={entity.name}>
+                          {/* Entity row: chevron toggles children, body selects the entity */}
                           <div
-                            className={`group/entity flex items-stretch border-l-2 transition-colors ${
+                            className={`group/entity flex items-stretch border-l-2 pl-3 transition-colors ${
                               isActive ? 'bg-accent-dim' : 'border-l-transparent hover:bg-hovered'
                             }`}
                             style={isActive ? { borderLeftColor: accent } : undefined}
                           >
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleEntity(entity.name)}
+                                aria-expanded={!entityCollapsed}
+                                aria-label={`${entityCollapsed ? 'Expand' : 'Collapse'} ${entity.name}`}
+                                className="flex items-center px-0.5 bg-transparent border-0 cursor-pointer text-muted hover:text-secondary shrink-0"
+                              >
+                                <ChevronDown
+                                  width={11}
+                                  height={11}
+                                  aria-hidden="true"
+                                  className={`transition-transform duration-150 ${entityCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                                />
+                              </button>
+                            ) : (
+                              <span className="w-[16px] shrink-0" aria-hidden="true" />
+                            )}
+
                             <button
                               type="button"
                               onClick={() => onSelectEntity(entity.name)}
                               aria-current={isActive ? 'true' : undefined}
                               className="flex items-center gap-0 py-[6px] flex-1 min-w-0 bg-transparent border-0 cursor-pointer text-left"
                             >
-                              <TreeBranch isLast={isLast && entity.indexPatterns.length === 0} />
                               <span className="font-mono text-[11px] text-muted shrink-0 max-w-[45%] overflow-hidden text-ellipsis whitespace-nowrap">
                                 <PatternChipLabel label={getPartitionChipLabel(entity.sk)} accent={accent} />
                               </span>
@@ -233,30 +288,45 @@ export function Sidebar({
                             </div>
                           </div>
 
-                          {/* Index rows */}
-                          {entity.indexPatterns.map((pattern, patternIdx) => {
-                            const isLastPattern = patternIdx === entity.indexPatterns.length - 1;
-                            const isFinal = isLast && isLastPattern;
-                            return (
-                              <button
-                                key={pattern.index}
-                                type="button"
-                                onClick={() => onSelectIndex(entity.name, pattern.index)}
-                                aria-label={`Query via index ${pattern.index} on ${entity.name}`}
-                                className="w-full flex items-center gap-0 py-[4px] bg-transparent border-0 border-l-2 border-l-transparent cursor-pointer text-left hover:bg-hovered transition-colors"
-                              >
-                                <TreeBranch isLast={isFinal} />
-                                <TreeSubBranch isLast={isLastPattern} />
-                                <span
-                                  className="font-mono text-[10px] font-semibold px-[5px] py-[1px] rounded-[3px] border shrink-0 mr-1.5"
-                                  style={{ color: accent, borderColor: `${accent}40`, background: `${accent}10` }}
+                          {/* Children: index patterns, then saved queries */}
+                          {children.map((child) => {
+                            if (child.kind === 'index') {
+                              return (
+                                <button
+                                  key={`i:${child.pattern.index}`}
+                                  type="button"
+                                  onClick={() => onSelectIndex(entity.name, child.pattern.index)}
+                                  aria-label={`Query via index ${child.pattern.index} on ${entity.name}`}
+                                  className="w-full flex items-center gap-1.5 py-[4px] pl-9 pr-2 bg-transparent border-0 border-l-2 border-l-transparent cursor-pointer text-left hover:bg-hovered transition-colors"
                                 >
-                                  {pattern.index}
-                                </span>
-                                <span className="font-mono text-[11px] text-muted flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                                  <PatternChipLabel label={getPartitionChipLabel(pattern.pk)} accent={accent} />
-                                </span>
-                              </button>
+                                  <span
+                                    className="font-mono text-[10px] font-semibold px-[5px] py-[1px] rounded-[3px] border shrink-0"
+                                    style={{ color: accent, borderColor: `${accent}40`, background: `${accent}10` }}
+                                  >
+                                    {child.pattern.index}
+                                  </span>
+                                  <span className="font-mono text-[11px] text-muted flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                                    <PatternChipLabel label={getPartitionChipLabel(child.pattern.pk)} accent={accent} />
+                                  </span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <QueryRow
+                                key={`q:${child.query.id}`}
+                                query={child.query}
+                                accent={accent}
+                                isActive={child.query.id === activeQueryId}
+                                isRenaming={renamingId === child.query.id}
+                                renameValue={renameValue}
+                                onRenameValueChange={setRenameValue}
+                                onStartRename={() => startRename(child.query)}
+                                onConfirmRename={() => confirmRename(child.query.id)}
+                                onCancelRename={() => setRenamingId(null)}
+                                onSelect={() => onSelectQuery(child.query)}
+                                onDelete={() => onDeleteQuery(child.query.id)}
+                              />
                             );
                           })}
                         </div>
@@ -265,32 +335,6 @@ export function Sidebar({
                 </div>
               );
             })
-          )}
-        </div>
-      )}
-
-      {/* --- Saved queries section --- */}
-      <SectionHeader
-        icon={<Bookmark size={12} aria-hidden="true" />}
-        label="Saved queries"
-        count={schema.queries.length}
-        open={openSections.queries}
-        onToggle={() => toggleSection('queries')}
-      />
-
-      {openSections.queries && (
-        <div className="overflow-y-auto flex-1 min-h-0">
-          {filteredQueries.length === 0 ? (
-            <EmptyHint>{term ? 'No queries match the filter.' : 'No saved queries yet.'}</EmptyHint>
-          ) : (
-            <SavedQueriesList
-              queries={filteredQueries}
-              accentForEntity={accentForEntity}
-              activeQueryId={activeQueryId}
-              onSelect={onSelectQuery}
-              onRename={onRenameQuery}
-              onDelete={onDeleteQuery}
-            />
           )}
         </div>
       )}
@@ -356,152 +400,99 @@ function EmptyHint({ children }: { children: ReactNode }) {
   return <div className="px-4 py-5 text-center text-muted text-xs font-ui">{children}</div>;
 }
 
-// ---- Tree connectors ----
+// ---- Saved query row (nested under its entity) ----
 
-function TreeBranch({ isLast }: { isLast: boolean }) {
-  return (
-    <span aria-hidden="true" className="relative shrink-0 w-[26px] self-stretch">
-      <span
-        className="absolute left-[14px] top-0 w-px bg-line-dim"
-        style={{ bottom: isLast ? '50%' : '0' }}
-      />
-      <span className="absolute left-[14px] top-1/2 w-[10px] h-px bg-line-dim -translate-y-px" />
-    </span>
-  );
-}
-
-function TreeSubBranch({ isLast }: { isLast: boolean }) {
-  return (
-    <span aria-hidden="true" className="relative shrink-0 w-[18px] self-stretch">
-      <span
-        className="absolute left-0 top-0 w-px bg-line-dim"
-        style={{ bottom: isLast ? '50%' : '0' }}
-      />
-      <span className="absolute left-0 top-1/2 w-[10px] h-px bg-line-dim -translate-y-px" />
-    </span>
-  );
-}
-
-// ---- Saved queries list ----
-
-function SavedQueriesList({
-  queries,
-  accentForEntity,
-  activeQueryId,
+function QueryRow({
+  query,
+  accent,
+  isActive,
+  isRenaming,
+  renameValue,
+  onRenameValueChange,
+  onStartRename,
+  onConfirmRename,
+  onCancelRename,
   onSelect,
-  onRename,
   onDelete,
 }: {
-  queries: SavedQuery[];
-  accentForEntity: (entityName: string) => string;
-  activeQueryId: string | null;
-  onSelect: (query: SavedQuery) => void;
-  onRename: (id: string, name: string) => void;
-  onDelete: (id: string) => void;
+  query: SavedQuery;
+  accent: string;
+  isActive: boolean;
+  isRenaming: boolean;
+  renameValue: string;
+  onRenameValueChange: (value: string) => void;
+  onStartRename: () => void;
+  onConfirmRename: () => void;
+  onCancelRename: () => void;
+  onSelect: () => void;
+  onDelete: () => void;
 }) {
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-
-  function startRename(query: SavedQuery) {
-    setRenamingId(query.id);
-    setRenameValue(query.name);
-  }
-
-  function confirmRename(query: SavedQuery) {
-    const name = renameValue.trim();
-    if (name) onRename(query.id, name);
-    setRenamingId(null);
+  if (isRenaming) {
+    return (
+      <div className="flex items-center border-l-2 border-l-transparent pl-9">
+        <div className="flex items-center gap-1 flex-1 min-w-0 pr-2 py-[3px]">
+          <input
+            value={renameValue}
+            onChange={(e) => onRenameValueChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onConfirmRename();
+              if (e.key === 'Escape') onCancelRename();
+            }}
+            autoFocus
+            aria-label="Rename query"
+            className="flex-1 min-w-0 bg-canvas border border-accent/50 rounded-[4px] text-primary font-mono text-xs px-2 py-[3px] outline-none"
+            spellCheck={false}
+          />
+          <IconButton label="Confirm rename" onClick={onConfirmRename} disabled={!renameValue.trim()} className="text-accent">
+            <span aria-hidden="true">✓</span>
+          </IconButton>
+          <IconButton label="Cancel rename" onClick={onCancelRename}>
+            <X size={12} aria-hidden="true" />
+          </IconButton>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <ul className="flex flex-col py-1 px-1 gap-[1px] m-0 list-none" aria-label="Saved queries">
-      {queries.map((query) => {
-        const isActive = query.id === activeQueryId;
-        const isRenaming = renamingId === query.id;
-        const accent = accentForEntity(query.entityName);
-
-        return (
-          <li
-            key={query.id}
-            className={`group flex items-center gap-1.5 px-2 py-[5px] rounded-[5px] transition-colors ${
-              isActive ? 'bg-accent-dim' : 'hover:bg-hovered'
-            }`}
+    <div
+      className={`group/q flex items-stretch border-l-2 transition-colors ${
+        isActive ? 'bg-accent-dim' : 'border-l-transparent hover:bg-hovered'
+      }`}
+      style={isActive ? { borderLeftColor: accent } : undefined}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={isActive ? 'true' : undefined}
+        className="flex items-center gap-0 py-[4px] pl-9 flex-1 min-w-0 bg-transparent border-0 cursor-pointer text-left"
+      >
+        <Bookmark size={11} aria-hidden="true" className="shrink-0 mr-1.5" style={{ color: accent }} />
+        <span
+          className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-ui ${
+            isActive ? 'text-accent font-medium' : 'text-secondary'
+          }`}
+        >
+          {query.name}
+        </span>
+        {query.target !== 'base' && (
+          <span
+            className="font-mono text-[10px] px-[5px] py-[1px] rounded-[3px] shrink-0 ml-1.5"
+            style={{ color: accent, borderColor: `${accent}40`, background: `${accent}10`, border: '1px solid' }}
           >
-            {isRenaming ? (
-              <div className="flex items-center gap-1 flex-1">
-                <input
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') confirmRename(query);
-                    if (e.key === 'Escape') setRenamingId(null);
-                  }}
-                  autoFocus
-                  aria-label="Rename query"
-                  className="flex-1 bg-canvas border border-accent/50 rounded-[4px] text-primary font-mono text-xs px-2 py-[3px] outline-none"
-                  spellCheck={false}
-                />
-                <IconButton
-                  label="Confirm rename"
-                  onClick={() => confirmRename(query)}
-                  disabled={!renameValue.trim()}
-                  className="text-accent"
-                >
-                  <span aria-hidden="true">✓</span>
-                </IconButton>
-                <IconButton label="Cancel rename" onClick={() => setRenamingId(null)}>
-                  <X size={12} aria-hidden="true" />
-                </IconButton>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onSelect(query)}
-                  aria-current={isActive ? 'true' : undefined}
-                  className="flex items-center gap-1.5 flex-1 min-w-0 bg-transparent border-0 cursor-pointer text-left"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="w-[5px] h-[5px] rounded-full shrink-0"
-                    style={{ background: accent }}
-                  />
-                  <span
-                    className={`flex-1 font-ui text-xs leading-normal truncate ${
-                      isActive ? 'text-accent font-medium' : 'text-secondary'
-                    }`}
-                  >
-                    {query.name}
-                  </span>
-                  <span
-                    className="font-mono text-[10px] text-muted/70 truncate max-w-[90px] shrink-0"
-                    title={`Entity: ${query.entityName}`}
-                  >
-                    {query.entityName}
-                  </span>
-                  {query.target !== 'base' && (
-                    <span
-                      className="font-mono text-[10px] px-[5px] py-[1px] rounded-[3px] shrink-0"
-                      style={{ color: accent, borderColor: `${accent}40`, background: `${accent}10`, border: '1px solid' }}
-                    >
-                      {query.target}
-                    </span>
-                  )}
-                </button>
+            {query.target}
+          </span>
+        )}
+      </button>
 
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
-                  <IconButton label={`Rename query ${query.name}`} onClick={() => startRename(query)}>
-                    <Pencil size={11} aria-hidden="true" />
-                  </IconButton>
-                  <IconButton label={`Delete query ${query.name}`} danger onClick={() => onDelete(query.id)}>
-                    <Trash2 size={11} aria-hidden="true" />
-                  </IconButton>
-                </div>
-              </>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+      <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover/q:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
+        <IconButton label={`Rename query ${query.name}`} onClick={onStartRename}>
+          <Pencil size={11} aria-hidden="true" />
+        </IconButton>
+        <IconButton label={`Delete query ${query.name}`} danger onClick={onDelete}>
+          <Trash2 size={11} aria-hidden="true" />
+        </IconButton>
+      </div>
+    </div>
   );
 }

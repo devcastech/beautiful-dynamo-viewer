@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Bookmark, Check, Play, RefreshCw, X } from 'lucide-react';
 import { parsePattern } from '../domain/schema/patternParser.ts';
+import { buildQueryParams, type QueryParams } from '../domain/schema/buildQueryParams.ts';
 import { Input } from './ui/Input.tsx';
 import { Select } from './ui/Select.tsx';
 import { IconButton } from './ui/Button.tsx';
 import type { Entity, SkOp, TableSchema } from '../domain/schema/types.ts';
-import type { QueryParams, SkCondition } from '../services/dynamo.ts';
 import { isMacOS } from '../services/runtime.ts';
 
 interface QueryBuilderProps {
@@ -89,35 +89,20 @@ export function QueryBuilder({
   const skFilled = skOp === 'none' || parsedSk.variables.every((v) => (skValues[v] ?? '').trim() !== '');
   const canSubmit = pkFilled && skFilled && !executeDisabledReason && !isLoading;
 
-  function buildParams(): QueryParams {
-    const pkValue = parsedPk.resolve(pkValues);
-    const pkName = activeIndexDef ? activeIndexDef.pkAttr : schema.keys.pk;
-    const skName = activeIndexDef ? activeIndexDef.skAttr ?? 'SK' : schema.keys.sk;
-
-    let skCondition: SkCondition | undefined;
-    if (skOp !== 'none') {
-      const skValue = parsedSk.variables.length > 0 ? parsedSk.resolve(skValues) : activeSkPattern;
-      if (skOp === 'Eq') skCondition = { op: 'Eq', value: skValue };
-      else if (skOp === 'BeginsWith') skCondition = { op: 'BeginsWith', value: skValue };
-      else if (skOp === 'Between') {
-        const to = parsedSk.variables.length > 0 ? parsedSk.resolve(sk2Values) : activeSkPattern;
-        skCondition = { op: 'Between', value: { from: skValue, to } };
-      }
-    }
-
-    return {
-      table: tableName,
-      pkName,
-      pkValue,
-      skName: skOp !== 'none' ? skName : undefined,
-      skCondition,
-      indexName: activePattern ? activePattern.index : undefined,
-    };
-  }
-
   function handleSubmit() {
     if (!canSubmit) return;
-    onSubmit(buildParams());
+    onSubmit(
+      buildQueryParams({
+        schema,
+        entity,
+        tableName,
+        target: selectedTarget,
+        pkValues,
+        skOp,
+        skValues,
+        sk2Values,
+      }),
+    );
   }
 
   // ⌘↵ / Ctrl+Enter executes from anywhere in the builder

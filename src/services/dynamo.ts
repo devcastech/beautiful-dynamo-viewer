@@ -1,20 +1,9 @@
 import { isTauriRuntime } from './runtime.ts';
 
-export type SkCondition =
-  | { op: 'Eq'; value: string }
-  | { op: 'BeginsWith'; value: string }
-  | { op: 'Between'; value: { from: string; to: string } };
-
-export interface QueryParams {
-  table: string;
-  pkName: string;
-  pkValue: string;
-  skName?: string;
-  skCondition?: SkCondition;
-  indexName?: string;
-  limit?: number;
-  exclusiveStartKey?: Record<string, unknown>;
-}
+// QueryParams/SkCondition are defined in the domain (see buildQueryParams); re-exported
+// here so existing call sites can keep importing them alongside queryTable.
+export type { QueryParams, SkCondition } from '../domain/schema/buildQueryParams.ts';
+import type { QueryParams } from '../domain/schema/buildQueryParams.ts';
 
 interface BackendQueryResult {
   items: Record<string, unknown>[];

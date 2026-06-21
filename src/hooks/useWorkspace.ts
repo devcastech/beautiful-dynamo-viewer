@@ -32,7 +32,7 @@ type WorkspaceAction =
   | { type: 'queryDeleted'; id: string }
   | { type: 'querySaved'; id: string };
 
-const initialState: WorkspaceState = {
+export const initialWorkspaceState: WorkspaceState = {
   entityName: null,
   tab: 'query',
   queryId: null,
@@ -41,17 +41,17 @@ const initialState: WorkspaceState = {
   draft: null,
 };
 
-function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
+export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
   switch (action.type) {
     case 'reset':
-      return initialState;
+      return initialWorkspaceState;
 
     case 'selectEntity':
-      return { ...initialState, entityName: action.name, loadSeq: state.loadSeq };
+      return { ...initialWorkspaceState, entityName: action.name, loadSeq: state.loadSeq };
 
     case 'selectIndex':
       return {
-        ...initialState,
+        ...initialWorkspaceState,
         entityName: action.entityName,
         loadedQuery: {
           id: '',
@@ -68,7 +68,7 @@ function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState
 
     case 'selectQuery':
       return {
-        ...initialState,
+        ...initialWorkspaceState,
         entityName: action.query.entityName,
         queryId: action.query.id || null,
         loadedQuery: action.query,
@@ -96,7 +96,7 @@ function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState
 
     case 'entityDeleted':
       return state.entityName === action.name
-        ? { ...initialState, loadSeq: state.loadSeq }
+        ? { ...initialWorkspaceState, loadSeq: state.loadSeq }
         : state;
 
     case 'queryDeleted':
@@ -111,7 +111,7 @@ function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState
 
 /** Pure UI selection state for the main workspace (what's selected, which tab, drawer). */
 export function useWorkspace() {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(workspaceReducer, initialWorkspaceState);
   return { ...state, dispatch };
 }
 

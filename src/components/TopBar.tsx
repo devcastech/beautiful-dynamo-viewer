@@ -45,7 +45,7 @@ export function TopBar({
     <header
       data-tauri-drag-region
       className={`flex items-center gap-3 h-12 shrink-0 border-b border-line-dim bg-surface/60 pr-2 ${
-        isMacOS() ? 'pl-19.5' : 'pl-4'
+        isMacOS() ? 'pl-[84px]' : 'pl-4'
       }`}
     >
       <div data-tauri-drag-region className="flex items-center gap-2 shrink-0">

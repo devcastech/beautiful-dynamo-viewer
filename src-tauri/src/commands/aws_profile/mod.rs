@@ -1,47 +1,64 @@
 use aws_sdk_dynamodb::Client;
 use crate::error::AppError;
-use std::{process::Command};
 use tokio::sync::Mutex;
+
+fn aws() -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new("aws");
+    // GUI apps on macOS don't inherit the shell PATH; prepend common install locations.
+    #[cfg(target_os = "macos")] {
+        let existing = std::env::var("PATH").unwrap_or_default();
+        cmd.env("PATH", format!("/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{existing}"));
+    }
+    cmd
+}
 
 #[tauri::command]
 pub async fn list_aws_profiles() -> Result<Vec<String>, AppError> {
-    let profiles = Command::new("aws")
+    let out = aws()
         .arg("configure")
         .arg("list-profiles")
         .output()
-        .map_err(|e| AppError::from(e))?;
+        .await
+        .map_err(AppError::from)?;
 
-    let output = String::from_utf8_lossy(&profiles.stdout);
-    let profiles: Vec<String> = output.lines().map(|l| l.to_string()).collect();
+    let profiles = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| l.to_string())
+        .collect();
     Ok(profiles)
 }
 
 #[tauri::command]
 pub async fn aws_sso_login(profile: String) -> Result<bool, AppError> {
-    let result = tokio::process::Command::new("aws")
+    let result = aws()
         .arg("sso")
         .arg("login")
         .arg("--profile")
         .arg(&profile)
         .output()
         .await
-        .map_err(|e| AppError::from(e))?;
+        .map_err(AppError::from)?;
 
     Ok(result.status.success())
 }
 
 #[tauri::command]
 pub async fn check_aws_profile(profile: String) -> Result<bool, AppError> {
-    let result = tokio::process::Command::new("aws")
-        .arg("sts")
-        .arg("get-caller-identity")
-        .arg("--profile")
-        .arg(&profile)
-        .output()
-        .await
-        .map_err(|e| AppError::from(e))?;
+    let output = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        aws()
+            .arg("sts")
+            .arg("get-caller-identity")
+            .arg("--profile")
+            .arg(&profile)
+            .env("AWS_PAGER", "")
+            .output(),
+    )
+    .await
+    .map_err(|_| AppError { message: "profile check timed out".into() })?
+    .map_err(AppError::from)?;
 
-    Ok(result.status.success())
+    Ok(output.status.success())
 }
 
 #[tauri::command]

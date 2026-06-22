@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-react';
-import { Button } from './ui/Button.tsx';
 import type { QueryResult } from '../hooks/useQueryExecutor.ts';
 
 interface QueryResultsProps {
@@ -69,13 +68,26 @@ export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsP
   const rows = result.data;
 
   if (rows.length === 0) {
+    // A page can be empty yet have more data ahead when a filter is active
+    // (filters run after the key read), so keep pagination available.
     return (
-      <div className="flex flex-col items-center justify-center gap-1 h-[100px] font-mono text-xs">
-        <span className="text-secondary">Query matched 0 items</span>
-        <span className="text-muted">
-          The keys are valid but nothing lives there
-          {result.durationMs !== undefined && ` · ${result.durationMs}ms`}
-        </span>
+      <div className="flex flex-col gap-2.5">
+        {(onPrev || onNext) && (
+          <div className="flex justify-end">
+            <Pager onPrev={onPrev} onNext={onNext} />
+          </div>
+        )}
+        <div className="flex flex-col items-center justify-center gap-1 h-[100px] font-mono text-xs">
+          <span className="text-secondary">
+            {onNext ? 'No items on this page' : 'Query matched 0 items'}
+          </span>
+          <span className="text-muted">
+            {onNext
+              ? 'Filters run after the key read — keep paging with Next to scan further'
+              : 'The keys are valid but nothing lives there'}
+            {result.durationMs !== undefined && ` · ${result.durationMs}ms`}
+          </span>
+        </div>
       </div>
     );
   }
@@ -112,6 +124,7 @@ export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsP
             <ViewBtn active={view === 'table'} onClick={() => setView('table')}>Table</ViewBtn>
             <ViewBtn active={view === 'json'} onClick={() => setView('json')}>JSON</ViewBtn>
           </div>
+          <Pager onPrev={onPrev} onNext={onNext} />
         </div>
       </div>
 
@@ -124,7 +137,9 @@ export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsP
                 {columns.map((col) => (
                   <th
                     key={col}
-                    className="py-1.5 px-3 text-left font-semibold text-muted whitespace-nowrap border-b border-line tracking-[0.05em]"
+                    className={`py-1.5 px-3 text-left font-semibold whitespace-nowrap border-b border-line tracking-[0.05em] ${
+                      keyAttrs.includes(col) ? 'text-accent' : 'text-muted'
+                    }`}
                   >
                     {col}
                   </th>
@@ -162,7 +177,11 @@ export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsP
                               }
                             }}
                             className={`py-1.5 px-3 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap ${
-                              copied === `${i}:${col}` ? 'text-ok' : isKey ? 'text-accent' : 'text-secondary'
+                              copied === `${i}:${col}`
+                                ? 'text-ok'
+                                : isKey
+                                  ? 'text-primary font-medium'
+                                  : 'text-secondary'
                             }`}
                           >
                             {display}
@@ -203,18 +222,53 @@ export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsP
           {JSON.stringify(rows, null, 2)}
         </pre>
       )}
-
-      {(onPrev || onNext) && (
-        <div className="flex items-center justify-between mt-1">
-          <Button onClick={onPrev} disabled={!onPrev} icon={<ChevronLeft size={12} />}>
-            Prev
-          </Button>
-          <Button onClick={onNext} disabled={!onNext}>
-            Next <ChevronRight size={12} aria-hidden="true" />
-          </Button>
-        </div>
-      )}
     </div>
+  );
+}
+
+/** Compact Prev/Next pager, styled like the Table/JSON toggle group. */
+function Pager({ onPrev, onNext }: { onPrev?: () => void; onNext?: () => void }) {
+  if (!onPrev && !onNext) return null;
+  return (
+    <div className="flex border border-line rounded overflow-hidden">
+      <PagerBtn onClick={onPrev} disabled={!onPrev} label="Previous page">
+        <ChevronLeft size={13} aria-hidden="true" />
+        Prev
+      </PagerBtn>
+      <PagerBtn onClick={onNext} disabled={!onNext} label="Next page" borderLeft>
+        Next
+        <ChevronRight size={13} aria-hidden="true" />
+      </PagerBtn>
+    </div>
+  );
+}
+
+function PagerBtn({
+  onClick,
+  disabled,
+  label,
+  borderLeft = false,
+  children,
+}: {
+  onClick?: () => void;
+  disabled: boolean;
+  label: string;
+  borderLeft?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={`flex items-center gap-1 py-[3px] px-2 font-mono text-xs bg-transparent text-muted cursor-pointer transition-colors hover:text-secondary hover:bg-elevated disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
+        borderLeft ? 'border-0 border-l border-line' : 'border-0'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

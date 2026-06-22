@@ -5,6 +5,7 @@ import type { SchemaRepository } from '../services/storage.ts';
 import { seedSchemas } from '../data/seed.ts';
 
 const SAVE_DEBOUNCE_MS = 400;
+const ACTIVE_SCHEMA_KEY = 'dynamo-viewer.activeSchema';
 
 /**
  * Owns the schema collection: loads it from the repository on mount (seeding
@@ -24,7 +25,10 @@ export function useSchemaStore(repo: SchemaRepository) {
         if (cancelled) return;
         const initial = stored ?? seedSchemas();
         setSchemas(initial);
-        setActiveId(initial[0]?.id ?? null);
+        // Restore the last active schema if it still exists, else fall back to the first.
+        const savedActive = localStorage.getItem(ACTIVE_SCHEMA_KEY);
+        const active = initial.find((s) => s.id === savedActive)?.id ?? initial[0]?.id ?? null;
+        setActiveId(active);
         if (stored === null && initial.length > 0) void repo.save(initial);
       })
       .catch((err: unknown) => {
@@ -38,6 +42,15 @@ export function useSchemaStore(repo: SchemaRepository) {
       cancelled = true;
     };
   }, [repo]);
+
+  // Persist the active schema so a reload reopens where the user left off.
+  // Guard on `schemas` so the initial null state doesn't clobber the saved id
+  // before the async load has had a chance to read it back.
+  useEffect(() => {
+    if (schemas === null) return;
+    if (activeId) localStorage.setItem(ACTIVE_SCHEMA_KEY, activeId);
+    else localStorage.removeItem(ACTIVE_SCHEMA_KEY);
+  }, [activeId, schemas]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mutate = useCallback(

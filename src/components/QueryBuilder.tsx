@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Bookmark, Check, Play, RefreshCw, X } from 'lucide-react';
+import { Bookmark, Check, Play, Plus, RefreshCw, X } from 'lucide-react';
 import { parsePattern } from '../domain/schema/patternParser.ts';
-import { buildQueryParams, type QueryParams } from '../domain/schema/buildQueryParams.ts';
+import {
+  buildQueryParams,
+  type FilterOp,
+  type FilterValueType,
+  type QueryFilter,
+  type QueryParams,
+} from '../domain/schema/buildQueryParams.ts';
 import { Input } from './ui/Input.tsx';
 import { Select } from './ui/Select.tsx';
 import { IconButton } from './ui/Button.tsx';
@@ -48,6 +54,51 @@ const SK_OP_LABEL: Record<Exclude<SkOp, 'none'>, string> = {
   Between: 'between',
 };
 
+const FILTER_OP_OPTIONS: { value: FilterOp; label: string }[] = [
+  { value: 'Eq', label: 'equals' },
+  { value: 'BeginsWith', label: 'begins_with' },
+  { value: 'Contains', label: 'contains' },
+  { value: 'Between', label: 'between' },
+];
+
+const VALUE_TYPE_OPTIONS: { value: FilterValueType; label: string }[] = [
+  { value: 'string', label: 'string' },
+  { value: 'number', label: 'number' },
+];
+
+/** Editable filter row state (flat, so a Between keeps from/to ready when toggled). */
+interface FilterRow {
+  name: string;
+  op: FilterOp;
+  valueType: FilterValueType;
+  value: string;
+  from: string;
+  to: string;
+}
+
+const emptyFilter = (): FilterRow => ({
+  name: '',
+  op: 'Eq',
+  valueType: 'string',
+  value: '',
+  from: '',
+  to: '',
+});
+
+/** Drop incomplete rows and shape the rest into the wire format the backend expects. */
+function toQueryFilters(rows: FilterRow[]): QueryFilter[] {
+  return rows
+    .filter((r) => r.name.trim() !== '')
+    .map((r) => ({
+      name: r.name.trim(),
+      valueType: r.valueType,
+      condition:
+        r.op === 'Between'
+          ? { op: 'Between', value: { from: r.from, to: r.to } }
+          : { op: r.op, value: r.value },
+    }));
+}
+
 export function QueryBuilder({
   schema,
   entity,
@@ -70,6 +121,14 @@ export function QueryBuilder({
   isLoading
 }: QueryBuilderProps) {
   const [saveName, setSaveName] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterRow[]>([]);
+
+  function updateFilter(i: number, patch: Partial<FilterRow>) {
+    setFilters((fs) => fs.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+  }
+  function removeFilter(i: number) {
+    setFilters((fs) => fs.filter((_, idx) => idx !== i));
+  }
 
   const activePattern =
     selectedTarget === 'base'
@@ -101,6 +160,7 @@ export function QueryBuilder({
         skOp,
         skValues,
         sk2Values,
+        filters: toQueryFilters(filters),
       }),
     );
   }
@@ -116,7 +176,7 @@ export function QueryBuilder({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSubmit, pkValues, skValues, sk2Values, skOp, selectedTarget, tableName]);
+  }, [canSubmit, pkValues, skValues, sk2Values, skOp, selectedTarget, tableName, filters]);
 
   function handleConfirmSave() {
     const name = saveName?.trim();
@@ -277,11 +337,112 @@ export function QueryBuilder({
             )}
           </div>
 
+          {/* Filters (FilterExpression on non-key attributes) */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="micro-label text-[12px]">Filters</span>
+              <span className="font-mono text-[11px] text-muted/50">applied after the key query</span>
+              <IconButton
+                label="Add filter"
+                onClick={() => setFilters((fs) => [...fs, emptyFilter()])}
+                className="ml-auto p-1"
+              >
+                <Plus size={14} aria-hidden="true" />
+              </IconButton>
+            </div>
+
+            {filters.length === 0 ? (
+              <span className="font-mono text-[11px] text-muted/50">
+                No filters — results come straight from the key query.
+              </span>
+            ) : (
+              filters.map((f, i) => (
+                <FilterRowEditor
+                  key={i}
+                  filter={f}
+                  onChange={(patch) => updateFilter(i, patch)}
+                  onRemove={() => removeFilter(i)}
+                />
+              ))
+            )}
+          </div>
+
           {executeDisabledReason && (
             <span className="font-mono text-[12px] text-muted">{executeDisabledReason}</span>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** One filter row: attribute · operator · type · value(s) · remove. */
+function FilterRowEditor({
+  filter,
+  onChange,
+  onRemove,
+}: {
+  filter: FilterRow;
+  onChange: (patch: Partial<FilterRow>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 py-1.5 px-2.5 bg-elevated border border-line rounded-md">
+      <div className="w-36">
+        <Input
+          aria-label="Filter attribute"
+          value={filter.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          placeholder="attribute"
+        />
+      </div>
+      <Select
+        ariaLabel="Filter operator"
+        value={filter.op}
+        onChange={(v) => onChange({ op: v as FilterOp })}
+        options={FILTER_OP_OPTIONS}
+        className="shrink-0"
+      />
+      <Select
+        ariaLabel="Filter value type"
+        value={filter.valueType}
+        onChange={(v) => onChange({ valueType: v as FilterValueType })}
+        options={VALUE_TYPE_OPTIONS}
+        className="shrink-0"
+      />
+      {filter.op === 'Between' ? (
+        <>
+          <div className="w-28">
+            <Input
+              aria-label="Filter value from"
+              value={filter.from}
+              onChange={(e) => onChange({ from: e.target.value })}
+              placeholder="from"
+            />
+          </div>
+          <span className="font-mono text-[11px] text-muted">to</span>
+          <div className="w-28">
+            <Input
+              aria-label="Filter value to"
+              value={filter.to}
+              onChange={(e) => onChange({ to: e.target.value })}
+              placeholder="to"
+            />
+          </div>
+        </>
+      ) : (
+        <div className="w-40">
+          <Input
+            aria-label="Filter value"
+            value={filter.value}
+            onChange={(e) => onChange({ value: e.target.value })}
+            placeholder="value"
+          />
+        </div>
+      )}
+      <IconButton label="Remove filter" onClick={onRemove} className="ml-auto p-1">
+        <X size={14} aria-hidden="true" />
+      </IconButton>
     </div>
   );
 }

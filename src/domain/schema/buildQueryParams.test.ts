@@ -119,3 +119,25 @@ describe('buildQueryParams — sort key conditions', () => {
     expect(p.skCondition).toEqual({ op: 'Eq', value: 'ORDER' });
   });
 });
+
+describe('buildQueryParams — filters', () => {
+  it('omits filters when none are given', () => {
+    expect(buildQueryParams(input()).filters).toBeUndefined();
+  });
+
+  it('omits an empty filters array', () => {
+    expect(buildQueryParams(input({ filters: [] })).filters).toBeUndefined();
+  });
+
+  it('passes filters through untouched', () => {
+    const filters = [
+      { name: 'document_name', valueType: 'string' as const, condition: { op: 'Eq' as const, value: 'x.pdf' } },
+      {
+        name: 'page_number',
+        valueType: 'number' as const,
+        condition: { op: 'Between' as const, value: { from: '1', to: '9' } },
+      },
+    ];
+    expect(buildQueryParams(input({ filters })).filters).toEqual(filters);
+  });
+});

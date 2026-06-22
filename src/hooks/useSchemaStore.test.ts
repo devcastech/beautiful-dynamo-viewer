@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useSchemaStore } from './useSchemaStore.ts';
 import type { SchemaRepository } from '../services/storage.ts';
@@ -27,7 +27,25 @@ function fakeRepo(over: Partial<SchemaRepository> = {}): SchemaRepository {
   };
 }
 
+/** Minimal in-memory Storage — happy-dom's localStorage is incomplete in this env. */
+function memoryStorage(): Storage {
+  const m = new Map<string, string>();
+  return {
+    getItem: (k) => m.get(k) ?? null,
+    setItem: (k, v) => void m.set(k, String(v)),
+    removeItem: (k) => void m.delete(k),
+    clear: () => m.clear(),
+    key: (i) => [...m.keys()][i] ?? null,
+    get length() {
+      return m.size;
+    },
+  };
+}
+
 describe('useSchemaStore', () => {
+  // Fresh storage per test for isolation.
+  beforeEach(() => vi.stubGlobal('localStorage', memoryStorage()));
+
   it('seeds the example schema on first run and persists it', async () => {
     const repo = fakeRepo({ load: vi.fn().mockResolvedValue(null) });
     const { result } = renderHook(() => useSchemaStore(repo));
@@ -62,6 +80,28 @@ describe('useSchemaStore', () => {
     expect(result.current.schemas).toEqual(stored);
     expect(result.current.activeSchema?.id).toBe('a');
     expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('restores the last active schema from storage', async () => {
+    localStorage.setItem('dynamo-viewer.activeSchema', 'b');
+    const stored = [schema('a'), schema('b')];
+    const repo = fakeRepo({ load: vi.fn().mockResolvedValue(stored) });
+    const { result } = renderHook(() => useSchemaStore(repo));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.activeSchema?.id).toBe('b');
+  });
+
+  it('falls back to the first schema when the saved id no longer exists', async () => {
+    localStorage.setItem('dynamo-viewer.activeSchema', 'gone');
+    const stored = [schema('a'), schema('b')];
+    const repo = fakeRepo({ load: vi.fn().mockResolvedValue(stored) });
+    const { result } = renderHook(() => useSchemaStore(repo));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.activeSchema?.id).toBe('a');
   });
 
   it('surfaces a load error and starts empty without overwriting the file', async () => {

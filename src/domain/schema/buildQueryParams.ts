@@ -6,6 +6,22 @@ export type SkCondition =
   | { op: 'BeginsWith'; value: string }
   | { op: 'Between'; value: { from: string; to: string } };
 
+export type FilterOp = 'Eq' | 'BeginsWith' | 'Contains' | 'Between';
+
+export type FilterValueType = 'string' | 'number';
+
+export type FilterCondition =
+  | { op: 'Eq'; value: string }
+  | { op: 'BeginsWith'; value: string }
+  | { op: 'Contains'; value: string }
+  | { op: 'Between'; value: { from: string; to: string } };
+
+export interface QueryFilter {
+  name: string;
+  valueType: FilterValueType;
+  condition: FilterCondition;
+}
+
 /** A resolved DynamoDB Query request, ready to hand to the backend. */
 export interface QueryParams {
   table: string;
@@ -16,6 +32,7 @@ export interface QueryParams {
   indexName?: string;
   limit?: number;
   exclusiveStartKey?: Record<string, unknown>;
+  filters?: QueryFilter[];
 }
 
 export interface BuildQueryParamsInput {
@@ -28,6 +45,7 @@ export interface BuildQueryParamsInput {
   skOp: SkOp;
   skValues: Record<string, string>;
   sk2Values: Record<string, string>;
+  filters?: QueryFilter[];
 }
 
 /**
@@ -74,5 +92,6 @@ export function buildQueryParams(input: BuildQueryParamsInput): QueryParams {
     skName: skOp !== 'none' ? skName : undefined,
     skCondition,
     indexName: activePattern ? activePattern.index : undefined,
+    filters: input.filters && input.filters.length > 0 ? input.filters : undefined,
   };
 }

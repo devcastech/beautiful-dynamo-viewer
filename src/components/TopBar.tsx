@@ -49,11 +49,7 @@ export function TopBar({
       }`}
     >
       <div data-tauri-drag-region className="flex items-center gap-2 shrink-0">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <rect x="2" y="1" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.9" />
-          <rect x="2" y="6" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.55" />
-          <rect x="2" y="11" width="12" height="3" rx="1" fill="var(--accent)" opacity="0.3" />
-        </svg>
+        <img src="/logo.png" className="w-5 h-5 object-contain opacity-70" alt="" />
         <span className="font-mono font-semibold text-[13px] text-primary tracking-[0.02em]">
           dynamo<span className="text-accent">.</span>viewer
         </span>

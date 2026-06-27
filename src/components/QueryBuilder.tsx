@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bookmark, Check, Play, Plus, RefreshCw, X } from 'lucide-react';
+import { Bookmark, Check, Play, RefreshCw, Trash2, X } from 'lucide-react';
 import { parsePattern } from '../domain/schema/patternParser.ts';
 import {
   buildQueryParams,
@@ -68,6 +68,8 @@ const VALUE_TYPE_OPTIONS: { value: FilterValueType; label: string }[] = [
 
 /** Editable filter row state (flat, so a Between keeps from/to ready when toggled). */
 interface FilterRow {
+  /** Unchecked rows stay in the table but are excluded from the query. */
+  enabled: boolean;
   name: string;
   op: FilterOp;
   valueType: FilterValueType;
@@ -77,6 +79,7 @@ interface FilterRow {
 }
 
 const emptyFilter = (): FilterRow => ({
+  enabled: true,
   name: '',
   op: 'Eq',
   valueType: 'string',
@@ -85,10 +88,10 @@ const emptyFilter = (): FilterRow => ({
   to: '',
 });
 
-/** Drop incomplete rows and shape the rest into the wire format the backend expects. */
+/** Drop disabled/incomplete rows and shape the rest into the wire format the backend expects. */
 function toQueryFilters(rows: FilterRow[]): QueryFilter[] {
   return rows
-    .filter((r) => r.name.trim() !== '')
+    .filter((r) => r.enabled && r.name.trim() !== '')
     .map((r) => ({
       name: r.name.trim(),
       valueType: r.valueType,
@@ -123,8 +126,16 @@ export function QueryBuilder({
   const [saveName, setSaveName] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterRow[]>([]);
 
-  function updateFilter(i: number, patch: Partial<FilterRow>) {
-    setFilters((fs) => fs.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+  // i === filters.length addresses the trailing ghost row: editing it appends a real filter.
+  function changeRow(i: number, patch: Partial<FilterRow>) {
+    setFilters((fs) =>
+      i < fs.length
+        ? fs.map((f, idx) => (idx === i ? { ...f, ...patch } : f))
+        : [...fs, { ...emptyFilter(), ...patch }],
+    );
+  }
+  function toggleRow(i: number) {
+    setFilters((fs) => fs.map((f, idx) => (idx === i ? { ...f, enabled: !f.enabled } : f)));
   }
   function removeFilter(i: number) {
     setFilters((fs) => fs.filter((_, idx) => idx !== i));
@@ -342,29 +353,14 @@ export function QueryBuilder({
             <div className="flex items-center gap-2">
               <span className="micro-label text-[12px]">Filters</span>
               <span className="font-mono text-[11px] text-muted/50">applied after the key query</span>
-              <IconButton
-                label="Add filter"
-                onClick={() => setFilters((fs) => [...fs, emptyFilter()])}
-                className="ml-auto p-1"
-              >
-                <Plus size={14} aria-hidden="true" />
-              </IconButton>
             </div>
 
-            {filters.length === 0 ? (
-              <span className="font-mono text-[11px] text-muted/50">
-                No filters — results come straight from the key query.
-              </span>
-            ) : (
-              filters.map((f, i) => (
-                <FilterRowEditor
-                  key={i}
-                  filter={f}
-                  onChange={(patch) => updateFilter(i, patch)}
-                  onRemove={() => removeFilter(i)}
-                />
-              ))
-            )}
+            <FiltersTable
+              filters={filters}
+              onChangeRow={changeRow}
+              onToggleRow={toggleRow}
+              onRemoveRow={removeFilter}
+            />
           </div>
 
           {executeDisabledReason && (
@@ -376,74 +372,198 @@ export function QueryBuilder({
   );
 }
 
-/** One filter row: attribute · operator · type · value(s) · remove. */
-function FilterRowEditor({
-  filter,
+// Shared column template so the header and every row stay aligned:
+// enable · Name · Value · delete.
+const FILTER_GRID = 'grid grid-cols-[2.25rem_minmax(120px,1fr)_minmax(220px,1.7fr)_2.25rem]';
+const FILTER_CELL = 'border-b border-r border-line min-h-10';
+
+/**
+ * Postman-style key/value table. Renders the real filters plus one trailing
+ * ghost row; typing into the ghost row materialises a new filter.
+ */
+function FiltersTable({
+  filters,
+  onChangeRow,
+  onToggleRow,
+  onRemoveRow,
+}: {
+  filters: FilterRow[];
+  onChangeRow: (i: number, patch: Partial<FilterRow>) => void;
+  onToggleRow: (i: number) => void;
+  onRemoveRow: (i: number) => void;
+}) {
+  const rows = [...filters, emptyFilter()];
+  const headerCls = `${FILTER_CELL} flex items-center px-3 py-1.5 text-[11px] font-semibold tracking-wide text-accent bg-elevated/40`;
+  return (
+    <div className={`${FILTER_GRID} border border-line rounded-md bg-canvas`}>
+      <div className={`${FILTER_CELL} bg-elevated/40`} aria-hidden="true" />
+      <div className={headerCls}>Name</div>
+      <div className={headerCls}>Value</div>
+      <div className={`${FILTER_CELL} bg-elevated/40`} aria-hidden="true" />
+
+      {rows.map((row, i) => (
+        <FilterTableRow
+          key={i}
+          filter={row}
+          isGhost={i === filters.length}
+          onChange={(patch) => onChangeRow(i, patch)}
+          onToggle={() => onToggleRow(i)}
+          onRemove={() => onRemoveRow(i)}
+        />
+      ))}
+    </div>
+  );
+}
+
+const ROW_INPUT_CLS =
+  'w-full bg-transparent border-0 outline-none font-mono text-xs text-primary placeholder:text-muted/40 min-h-8';
+
+/**
+ * Compact inline chip that cycles through its options on click — a no-popup
+ * stand-in for a <select> in the dense filter table (so nothing can be clipped
+ * by the surrounding scroll area). `subtle` dims it for secondary controls.
+ */
+function CycleChip<T extends string>({
+  ariaLabel,
+  value,
+  options,
   onChange,
+  subtle = false,
+}: {
+  ariaLabel: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+  subtle?: boolean;
+}) {
+  const idx = Math.max(0, options.findIndex((o) => o.value === value));
+  const current = options[idx];
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(options[(idx + 1) % options.length].value)}
+      aria-label={`${ariaLabel}: ${current.label}. Click to change.`}
+      title={`${ariaLabel}: ${current.label} — click to cycle`}
+      className={`shrink-0 font-mono text-[11px] rounded px-1.5 py-[3px] border cursor-pointer transition-colors ${
+        subtle
+          ? 'text-muted border-line hover:text-secondary hover:border-line'
+          : 'text-accent bg-accent-dim border-accent-line hover:border-accent'
+      }`}
+    >
+      {current.label}
+    </button>
+  );
+}
+
+/** One row's four cells (returned as a fragment so they sit in the shared grid). */
+function FilterTableRow({
+  filter,
+  isGhost,
+  onChange,
+  onToggle,
   onRemove,
 }: {
   filter: FilterRow;
+  isGhost: boolean;
   onChange: (patch: Partial<FilterRow>) => void;
+  onToggle: () => void;
   onRemove: () => void;
 }) {
+  const dim = !filter.enabled && !isGhost ? 'opacity-45' : '';
   return (
-    <div className="flex flex-wrap items-center gap-1.5 py-1.5 px-2.5 bg-elevated border border-line rounded-md">
-      <div className="w-36">
-        <Input
+    <>
+      {/* Enable checkbox — hidden on the ghost row until it has content */}
+      <div className={`${FILTER_CELL} flex items-center justify-center`}>
+        {!isGhost && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={filter.enabled}
+            aria-label={filter.enabled ? 'Disable filter' : 'Enable filter'}
+            onClick={onToggle}
+            className={`flex items-center justify-center w-3.75 h-3.75 rounded-[4px] border transition-colors ${
+              filter.enabled
+                ? 'bg-accent border-accent text-canvas'
+                : 'bg-transparent border-line hover:border-accent/50'
+            }`}
+          >
+            {filter.enabled && <Check size={11} strokeWidth={3} aria-hidden="true" />}
+          </button>
+        )}
+      </div>
+
+      {/* Name (attribute) */}
+      <div className={`${FILTER_CELL} flex items-center p-0 ${dim}`}>
+        <input
           aria-label="Filter attribute"
           value={filter.name}
           onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="attribute"
+          placeholder="Name"
+          spellCheck={false}
+          className={ROW_INPUT_CLS}
         />
       </div>
-      <Select
-        ariaLabel="Filter operator"
-        value={filter.op}
-        onChange={(v) => onChange({ op: v as FilterOp })}
-        options={FILTER_OP_OPTIONS}
-        className="shrink-0"
-      />
-      <Select
-        ariaLabel="Filter value type"
-        value={filter.valueType}
-        onChange={(v) => onChange({ valueType: v as FilterValueType })}
-        options={VALUE_TYPE_OPTIONS}
-        className="shrink-0"
-      />
-      {filter.op === 'Between' ? (
-        <>
-          <div className="w-28">
-            <Input
+
+      {/* Value (operator · value(s) · type) */}
+      <div className={`${FILTER_CELL} flex items-center gap-1.5 px-2 py-1 ${dim}`}>
+        {!isGhost && (
+          <CycleChip
+            ariaLabel="Filter operator"
+            value={filter.op}
+            onChange={(op) => onChange({ op })}
+            options={FILTER_OP_OPTIONS}
+          />
+        )}
+        {filter.op === 'Between' && !isGhost ? (
+          <>
+            <input
               aria-label="Filter value from"
               value={filter.from}
               onChange={(e) => onChange({ from: e.target.value })}
               placeholder="from"
+              spellCheck={false}
+              className={ROW_INPUT_CLS}
             />
-          </div>
-          <span className="font-mono text-[11px] text-muted">to</span>
-          <div className="w-28">
-            <Input
+            <span className="font-mono text-[11px] text-muted shrink-0">to</span>
+            <input
               aria-label="Filter value to"
               value={filter.to}
               onChange={(e) => onChange({ to: e.target.value })}
               placeholder="to"
+              spellCheck={false}
+              className={ROW_INPUT_CLS}
             />
-          </div>
-        </>
-      ) : (
-        <div className="w-40">
-          <Input
+          </>
+        ) : (
+          <input
             aria-label="Filter value"
             value={filter.value}
             onChange={(e) => onChange({ value: e.target.value })}
-            placeholder="value"
+            placeholder="Value"
+            spellCheck={false}
+            className={ROW_INPUT_CLS}
           />
-        </div>
-      )}
-      <IconButton label="Remove filter" onClick={onRemove} className="ml-auto p-1">
-        <X size={14} aria-hidden="true" />
-      </IconButton>
-    </div>
+        )}
+        {!isGhost && (
+          <CycleChip
+            ariaLabel="Filter value type"
+            value={filter.valueType}
+            onChange={(valueType) => onChange({ valueType })}
+            options={VALUE_TYPE_OPTIONS}
+            subtle
+          />
+        )}
+      </div>
+
+      {/* Delete */}
+      <div className={`${FILTER_CELL} flex items-center justify-center`}>
+        {!isGhost && (
+          <IconButton label="Remove filter" onClick={onRemove} danger className="p-1">
+            <Trash2 size={13} aria-hidden="true" />
+          </IconButton>
+        )}
+      </div>
+    </>
   );
 }
 

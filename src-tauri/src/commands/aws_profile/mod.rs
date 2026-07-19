@@ -3,6 +3,8 @@ use crate::error::AppError;
 use tokio::sync::Mutex;
 
 fn aws() -> tokio::process::Command {
+    // `mut` solo se usa dentro del bloque cfg(macos) de abajo.
+    #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
     let mut cmd = tokio::process::Command::new("aws");
     // GUI apps on macOS don't inherit the shell PATH; prepend common install locations.
     #[cfg(target_os = "macos")] {

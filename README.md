@@ -23,7 +23,11 @@ Schema                ← one DynamoDB table, modeled
 - **Index pattern** — what the entity writes into a GSI. The GSI itself (its physical
   attributes) is defined once at schema level and created automatically the first time an
   entity references it; edit attribute names under *Edit schema*.
-- **Saved query** — a bookmarked builder state (target index, variable values, SK condition).
+- **Saved query** — a bookmarked builder state (target index, variable values, SK condition,
+  filters).
+- **Filter** — a condition on a non-key attribute (Eq / BeginsWith / Contains / Between, typed
+  as string or number), applied as a DynamoDB `FilterExpression` after the key condition. Edited
+  in a Postman-style table where rows can be disabled without deleting them.
 
 ## Workspace persistence
 
@@ -46,6 +50,7 @@ pnpm install
 pnpm tauri dev    # desktop app (requires Rust toolchain + AWS CLI for profiles)
 pnpm dev          # browser-only UI dev (no query execution)
 pnpm test         # domain tests (vitest)
+pnpm test:rust    # backend tests (cargo test in src-tauri)
 pnpm build        # typecheck + bundle
 ```
 
@@ -59,7 +64,8 @@ src/
 ├── domain/schema/   pure logic: types, operations, migration, grouping, pattern parser (+ tests)
 ├── services/        Tauri bridges: dynamo, aws, storage, dialogs
 ├── hooks/           useSchemaStore, useWorkspace, useAwsConnection, useQueryExecutor
-├── components/      UI (components/ui/ holds the shared primitives)
+├── components/      UI (components/ui/ shared primitives, components/querybuilder/ filter table)
 └── data/seed.ts     example schemas (kept in v1 format to exercise the migration)
 src-tauri/           Rust backend: DynamoDB queries, AWS profiles, workspace persistence
+fixtures/            query-param JSON asserted by both vitest and cargo contract tests
 ```

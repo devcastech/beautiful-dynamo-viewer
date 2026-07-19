@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { awsSsoLogin, checkAwsProfile, listAwsProfiles, setAwsProfile } from '../services/aws.ts';
 import { isTauriRuntime } from '../services/runtime.ts';
 
@@ -39,17 +39,26 @@ export function useAwsConnection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Bumped on every activation; stale activations see a newer id and stop
+  // touching state, so rapid profile/region switches can't finish out of order
+  // and report a status that doesn't match the backend client.
+  const activationSeq = useRef(0);
+
   async function activate(nextProfile: string, nextRegion: string) {
+    const seq = ++activationSeq.current;
+    const isCurrent = () => activationSeq.current === seq;
     setStatus('checking');
     try {
-      if (!(await checkAwsProfile(nextProfile))) {
+      const ok = await checkAwsProfile(nextProfile);
+      if (!isCurrent()) return;
+      if (!ok) {
         setStatus('unauthed');
         return;
       }
       await setAwsProfile(nextProfile, nextRegion);
-      setStatus('authed');
+      if (isCurrent()) setStatus('authed');
     } catch {
-      setStatus('unauthed');
+      if (isCurrent()) setStatus('unauthed');
     }
   }
 

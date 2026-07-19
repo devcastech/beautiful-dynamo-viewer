@@ -38,10 +38,9 @@ execution is disabled.
 
 ## Schema JSON (import/export)
 
-Export produces the v2 format (one schema per file). Import accepts both v2 and the legacy v1
-format (`{ name, table, story, entities: [...] }` with per-entity `gsis`/`savedQueries`) and
-migrates it automatically. The `/dynamo-schema` Claude command generates v1 JSON from service
-code, which imports cleanly.
+One schema per file, carrying a `version` field (`2` today). Import validates the file deeply
+and rejects anything malformed or from another version with a precise error. The
+`/dynamo-schema` Claude command generates this format from service code.
 
 ## Development
 
@@ -65,7 +64,7 @@ src/
 ├── services/        Tauri bridges: dynamo, aws, storage, dialogs
 ├── hooks/           useSchemaStore, useWorkspace, useAwsConnection, useQueryExecutor
 ├── components/      UI (components/ui/ shared primitives, components/querybuilder/ filter table)
-└── data/seed.ts     example schemas (kept in v1 format to exercise the migration)
+└── data/seed.ts     example schemas
 src-tauri/           Rust backend: DynamoDB queries, AWS profiles, workspace persistence
 fixtures/            query-param JSON asserted by both vitest and cargo contract tests
 ```

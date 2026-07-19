@@ -54,14 +54,11 @@ describe('parseSchemaImport', () => {
     expect(() => parseSchemaImport('{"foo": 1}')).toThrow(/no numeric "version"/);
   });
 
-  it('rejects versions with no migration path', () => {
+  it('rejects any version other than the current one', () => {
     const v1 = { ...v2Fixture, version: 1 };
-    expect(() => parseSchemaImport(JSON.stringify(v1))).toThrow(/no migration path/);
-  });
-
-  it('rejects versions newer than the app supports', () => {
+    expect(() => parseSchemaImport(JSON.stringify(v1))).toThrow(/only supports version 2/);
     const v99 = { ...v2Fixture, version: 99 };
-    expect(() => parseSchemaImport(JSON.stringify(v99))).toThrow(/newer than this app supports/);
+    expect(() => parseSchemaImport(JSON.stringify(v99))).toThrow(/only supports version 2/);
   });
 
   it('rejects a malformed entity with a precise path', () => {

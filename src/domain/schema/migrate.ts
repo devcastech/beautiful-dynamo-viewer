@@ -1,45 +1,21 @@
 import { DEFAULT_KEYS, SCHEMA_VERSION, type SavedQuery, type TableSchema } from './types.ts';
 
-// ---- Version migrations ----
-
-/**
- * One step per version: MIGRATIONS[n] upgrades a raw schema from version n to
- * n+1 (and must set the new version itself). Empty today — v2 is the oldest
- * shape in the wild — but the chain is where a future v2 → v3 step lives, so
- * bumping SCHEMA_VERSION doesn't strand existing workspaces.
- */
-const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>> = {};
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function migrateToCurrent(raw: unknown, path: string): Record<string, unknown> {
+function checkVersion(raw: unknown, path: string): Record<string, unknown> {
   if (!isRecord(raw)) throw new Error(`${path} is not an object.`);
-  let obj = raw;
-  const rawVersion = obj.version;
-  if (typeof rawVersion !== 'number') {
+  const version = raw.version;
+  if (typeof version !== 'number') {
     throw new Error(`${path} has no numeric "version" field — not a schema export?`);
   }
-  let version: number = rawVersion;
-  if (version > SCHEMA_VERSION) {
+  if (version !== SCHEMA_VERSION) {
     throw new Error(
-      `${path} has version ${version}, newer than this app supports (${SCHEMA_VERSION}).`,
+      `${path} has version ${version}; this app only supports version ${SCHEMA_VERSION}.`,
     );
   }
-  while (version < SCHEMA_VERSION) {
-    const step = MIGRATIONS[version];
-    if (!step) {
-      throw new Error(`${path} has version ${version} and no migration path to ${SCHEMA_VERSION}.`);
-    }
-    obj = step(obj);
-    const next = obj.version;
-    if (typeof next !== 'number' || next <= version) {
-      throw new Error(`Migration from version ${version} did not advance the schema version.`);
-    }
-    version = next;
-  }
-  return obj;
+  return raw;
 }
 
 // ---- Structural validation ----
@@ -186,11 +162,11 @@ function normalizeSchema(schema: TableSchema): TableSchema {
   };
 }
 
-/** Migrate a raw schema entry to the current version, validate it deeply, fill defaults. */
-function upgradeAndValidate(raw: unknown, path: string): TableSchema {
-  const migrated = migrateToCurrent(raw, path);
-  validateTableSchema(migrated, path);
-  return normalizeSchema(migrated as unknown as TableSchema);
+/** Check the schema version, validate the entry deeply, fill defaults. */
+function checkAndValidate(raw: unknown, path: string): TableSchema {
+  const checked = checkVersion(raw, path);
+  validateTableSchema(checked, path);
+  return normalizeSchema(checked as unknown as TableSchema);
 }
 
 /**
@@ -203,7 +179,7 @@ export function parseSchemaImport(json: string): TableSchema {
   } catch {
     throw new Error('The file is not valid JSON.');
   }
-  return upgradeAndValidate(data, 'schema');
+  return checkAndValidate(data, 'schema');
 }
 
 /** Shape of the persisted workspace file ({ version, schemas }). */
@@ -211,7 +187,7 @@ export function serializeWorkspace(schemas: TableSchema[]): string {
   return JSON.stringify({ version: SCHEMA_VERSION, schemas }, null, 2);
 }
 
-/** Parse a persisted workspace file. Individual entries are migrated, validated and normalized. */
+/** Parse a persisted workspace file. Individual entries are validated and normalized. */
 export function parseWorkspace(json: string): TableSchema[] {
   let data: unknown;
   try {
@@ -225,5 +201,5 @@ export function parseWorkspace(json: string): TableSchema[] {
       : null;
   if (!schemas) throw new Error('Workspace file has no schemas array.');
 
-  return schemas.map((entry, i) => upgradeAndValidate(entry, `schemas[${i}]`));
+  return schemas.map((entry, i) => checkAndValidate(entry, `schemas[${i}]`));
 }

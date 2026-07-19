@@ -148,6 +148,13 @@ export default function App() {
         </div>
       )}
 
+      {store.saveError && (
+        <div className="px-4 py-2 font-mono text-[12px] text-err bg-err-dim border-b border-err/20">
+          Changes are not being saved: {store.saveError}. Your edits only live in memory — export
+          the schema as a backup and check the app data folder.
+        </div>
+      )}
+
       {!schema ? (
         <main className="flex-1 flex items-center justify-center dot-grid">
           <div className="bg-surface border border-line rounded-xl px-4 py-6 w-[420px]">

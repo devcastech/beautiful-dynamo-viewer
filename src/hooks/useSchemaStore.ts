@@ -16,6 +16,7 @@ export function useSchemaStore(repo: SchemaRepository) {
   const [schemas, setSchemas] = useState<TableSchema[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,16 +54,45 @@ export function useSchemaStore(repo: SchemaRepository) {
   }, [activeId, schemas]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Schemas mutated but not yet persisted; lets the unload flush save what the
+  // debounce window would otherwise drop.
+  const pendingSave = useRef<TableSchema[] | null>(null);
+
   const mutate = useCallback(
     (next: TableSchema[]) => {
       setSchemas(next);
+      pendingSave.current = next;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        repo.save(next).catch((err: unknown) => console.error('Failed to save workspace:', err));
+        saveTimer.current = null;
+        pendingSave.current = null;
+        repo
+          .save(next)
+          .then(() => setSaveError(null))
+          .catch((err: unknown) => {
+            setSaveError(err instanceof Error ? err.message : String(err));
+          });
       }, SAVE_DEBOUNCE_MS);
     },
     [repo],
   );
+
+  // Flush a pending debounced save when the window goes away. Best-effort: the
+  // localStorage repo completes synchronously; the Tauri repo at least gets the
+  // invoke dispatched before the webview dies.
+  useEffect(() => {
+    function flush() {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      const pending = pendingSave.current;
+      pendingSave.current = null;
+      if (pending) void repo.save(pending).catch(() => {});
+    }
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
+  }, [repo]);
 
   const loading = schemas === null;
   const list = schemas ?? [];
@@ -76,6 +106,7 @@ export function useSchemaStore(repo: SchemaRepository) {
   return {
     loading,
     loadError,
+    saveError,
     schemas: list,
     activeSchema,
     setActiveId,

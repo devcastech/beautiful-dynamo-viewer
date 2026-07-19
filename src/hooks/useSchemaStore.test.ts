@@ -125,4 +125,33 @@ describe('useSchemaStore', () => {
     expect(result.current.activeSchema?.id).toBe('b');
     await waitFor(() => expect(repo.save).toHaveBeenCalled());
   });
+
+  it('surfaces a save error and clears it once a save succeeds', async () => {
+    const save = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('disk full'))
+      .mockResolvedValue(undefined);
+    const repo = fakeRepo({ load: vi.fn().mockResolvedValue([schema('a')]), save });
+    const { result } = renderHook(() => useSchemaStore(repo));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.addSchema(schema('b')));
+    await waitFor(() => expect(result.current.saveError).toBe('disk full'));
+
+    act(() => result.current.addSchema(schema('c')));
+    await waitFor(() => expect(result.current.saveError).toBeNull());
+  });
+
+  it('flushes a pending debounced save on beforeunload', async () => {
+    const repo = fakeRepo({ load: vi.fn().mockResolvedValue([schema('a')]) });
+    const { result } = renderHook(() => useSchemaStore(repo));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.addSchema(schema('b')));
+    // Fire unload while the 400ms debounce is still pending.
+    act(() => void window.dispatchEvent(new Event('beforeunload')));
+
+    expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(repo.save).mock.calls[0][0].map((s) => s.id)).toEqual(['a', 'b']);
+  });
 });

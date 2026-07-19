@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isTableSchema,
-  parseSchemaImport,
-  parseWorkspace,
-  serializeWorkspace,
-} from './migrate.ts';
+import { parseSchemaImport, parseWorkspace, serializeWorkspace } from './migrate.ts';
 import type { TableSchema } from './types.ts';
 import { seedSchemas } from '../../data/seed.ts';
 
@@ -41,18 +36,6 @@ const v2Fixture: TableSchema = {
   ],
 };
 
-describe('isTableSchema', () => {
-  it('detects v2 schemas', () => {
-    expect(isTableSchema(v2Fixture)).toBe(true);
-  });
-
-  it('rejects non-v2 shapes', () => {
-    expect(isTableSchema(null)).toBe(false);
-    expect(isTableSchema({ name: 'x', table: 'y', entities: [] })).toBe(false);
-    expect(isTableSchema({ version: 1, name: 'x', tableName: 'y', entities: [] })).toBe(false);
-  });
-});
-
 describe('parseSchemaImport', () => {
   it('accepts a v2 file as-is', () => {
     expect(parseSchemaImport(JSON.stringify(v2Fixture))).toEqual(v2Fixture);
@@ -67,8 +50,77 @@ describe('parseSchemaImport', () => {
     expect(() => parseSchemaImport('not json')).toThrow(/valid JSON/);
   });
 
-  it('rejects JSON that is not a schema', () => {
-    expect(() => parseSchemaImport('{"foo": 1}')).toThrow(/Unrecognized/);
+  it('rejects JSON without a version field', () => {
+    expect(() => parseSchemaImport('{"foo": 1}')).toThrow(/no numeric "version"/);
+  });
+
+  it('rejects versions with no migration path', () => {
+    const v1 = { ...v2Fixture, version: 1 };
+    expect(() => parseSchemaImport(JSON.stringify(v1))).toThrow(/no migration path/);
+  });
+
+  it('rejects versions newer than the app supports', () => {
+    const v99 = { ...v2Fixture, version: 99 };
+    expect(() => parseSchemaImport(JSON.stringify(v99))).toThrow(/newer than this app supports/);
+  });
+
+  it('rejects a malformed entity with a precise path', () => {
+    const bad = {
+      ...v2Fixture,
+      entities: [v2Fixture.entities[0], { name: 'Broken', pk: 42, sk: 'X' }],
+    };
+    expect(() => parseSchemaImport(JSON.stringify(bad))).toThrow(/entities\[1\]\.pk must be a string/);
+  });
+
+  it('rejects a query with an unknown filter operator', () => {
+    const bad = {
+      ...v2Fixture,
+      queries: [
+        {
+          ...v2Fixture.queries[0],
+          filters: [{ name: 'total', valueType: 'number', condition: { op: 'Gt', value: '5' } }],
+        },
+      ],
+    };
+    expect(() => parseSchemaImport(JSON.stringify(bad))).toThrow(/filters\[0\]\.condition\.op/);
+  });
+
+  it('accepts a query with valid filters', () => {
+    const withFilters = {
+      ...v2Fixture,
+      queries: [
+        {
+          ...v2Fixture.queries[0],
+          filters: [
+            { name: 'status', valueType: 'string', condition: { op: 'Eq', value: 'ACTIVE' } },
+            {
+              name: 'total',
+              valueType: 'number',
+              condition: { op: 'Between', value: { from: '1', to: '9' } },
+            },
+          ],
+        },
+      ],
+    };
+    const parsed = parseSchemaImport(JSON.stringify(withFilters));
+    expect(parsed.queries[0].filters).toHaveLength(2);
+  });
+
+  it('fills defaults for a minimal but well-formed query', () => {
+    const minimal = {
+      ...v2Fixture,
+      queries: [{ id: 'q2', name: 'bare', entityName: 'Order', target: 'base' }],
+    };
+    expect(parseSchemaImport(JSON.stringify(minimal)).queries[0]).toEqual({
+      id: 'q2',
+      name: 'bare',
+      entityName: 'Order',
+      target: 'base',
+      pkValues: {},
+      skOp: 'none',
+      skValues: {},
+      sk2Values: {},
+    });
   });
 });
 
@@ -83,9 +135,9 @@ describe('workspace round-trip', () => {
     expect(() => parseWorkspace('garbage')).toThrow(/valid JSON/);
   });
 
-  it('rejects unrecognized schema entries', () => {
-    const json = JSON.stringify({ version: 2, schemas: [{ foo: 1 }] });
-    expect(() => parseWorkspace(json)).toThrow(/unrecognized schema entry/);
+  it('rejects unrecognized schema entries, naming the offending index', () => {
+    const json = JSON.stringify({ version: 2, schemas: [v2Fixture, { foo: 1 }] });
+    expect(() => parseWorkspace(json)).toThrow(/schemas\[1\]/);
   });
 });
 

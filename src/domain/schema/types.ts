@@ -1,5 +1,22 @@
 export type SkOp = 'none' | 'Eq' | 'BeginsWith' | 'Between';
 
+export type FilterOp = 'Eq' | 'BeginsWith' | 'Contains' | 'Between';
+
+export type FilterValueType = 'string' | 'number';
+
+export type FilterCondition =
+  | { op: 'Eq'; value: string }
+  | { op: 'BeginsWith'; value: string }
+  | { op: 'Contains'; value: string }
+  | { op: 'Between'; value: { from: string; to: string } };
+
+/** A FilterExpression clause on a non-key attribute. */
+export interface QueryFilter {
+  name: string;
+  valueType: FilterValueType;
+  condition: FilterCondition;
+}
+
 /** Physical attribute names of the base table keys (e.g. { pk: "PK", sk: "SK" }). */
 export interface TableKeys {
   pk: string;
@@ -44,6 +61,8 @@ export interface SavedQuery {
   skOp: SkOp;
   skValues: Record<string, string>;
   sk2Values: Record<string, string>;
+  /** Non-key attribute filters saved with the query. Absent in pre-filter workspaces. */
+  filters?: QueryFilter[];
 }
 
 /**

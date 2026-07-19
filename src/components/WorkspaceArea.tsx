@@ -3,6 +3,11 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Box, MousePointerClick, Terminal } from 'lucide-react';
 import { EntityInspector } from './EntityInspector.tsx';
 import { QueryBuilder } from './QueryBuilder.tsx';
+import {
+  fromQueryFilters,
+  toQueryFilters,
+  type FilterRow,
+} from './querybuilder/FiltersTable.tsx';
 import { QueryResults } from './QueryResults.tsx';
 import { EmptyState } from './ui/EmptyState.tsx';
 import { Select } from './ui/Select.tsx';
@@ -50,6 +55,7 @@ export function WorkspaceArea({
   const [skOp, setSkOp] = useState<SkOp>('none');
   const [skValues, setSkValues] = useState<Record<string, string>>({});
   const [sk2Values, setSk2Values] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<FilterRow[]>([]);
   const [pageSize, setPageSize] = useState<number>(10);
 
   const executor = useQueryExecutor();
@@ -61,6 +67,7 @@ export function WorkspaceArea({
     setSkOp('none');
     setSkValues({});
     setSk2Values({});
+    setFilters([]);
     executor.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity?.name, schema.id]);
@@ -73,6 +80,7 @@ export function WorkspaceArea({
     setSkOp(loadedQuery.skOp);
     setSkValues(loadedQuery.skValues);
     setSk2Values(loadedQuery.sk2Values);
+    setFilters(fromQueryFilters(loadedQuery.filters ?? []));
     executor.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadSeq]);
@@ -104,6 +112,7 @@ export function WorkspaceArea({
       skOp,
       skValues: { ...skValues },
       sk2Values: { ...sk2Values },
+      filters: toQueryFilters(filters),
     };
   }
 
@@ -168,11 +177,13 @@ export function WorkspaceArea({
               skOp={skOp}
               skValues={skValues}
               sk2Values={sk2Values}
+              filters={filters}
               onChangeTarget={setSelectedTarget}
               onChangePkValues={setPkValues}
               onChangeSkOp={setSkOp}
               onChangeSkValues={setSkValues}
               onChangeSk2Values={setSk2Values}
+              onChangeFilters={setFilters}
               onSubmit={handleSubmit}
               executeDisabledReason={executeDisabledReason}
               onSaveQuery={(name) =>

@@ -1,26 +1,15 @@
 import { parsePattern } from './patternParser.ts';
-import type { Entity, SkOp, TableSchema } from './types.ts';
+import { resolveTarget } from './resolveTarget.ts';
+import type { Entity, QueryFilter, SkOp, TableSchema } from './types.ts';
+
+// Filter types live in types.ts (SavedQuery persists them); re-exported here
+// so query-building call sites keep a single import location.
+export type { FilterCondition, FilterOp, FilterValueType, QueryFilter } from './types.ts';
 
 export type SkCondition =
   | { op: 'Eq'; value: string }
   | { op: 'BeginsWith'; value: string }
   | { op: 'Between'; value: { from: string; to: string } };
-
-export type FilterOp = 'Eq' | 'BeginsWith' | 'Contains' | 'Between';
-
-export type FilterValueType = 'string' | 'number';
-
-export type FilterCondition =
-  | { op: 'Eq'; value: string }
-  | { op: 'BeginsWith'; value: string }
-  | { op: 'Contains'; value: string }
-  | { op: 'Between'; value: { from: string; to: string } };
-
-export interface QueryFilter {
-  name: string;
-  valueType: FilterValueType;
-  condition: FilterCondition;
-}
 
 /** A resolved DynamoDB Query request, ready to hand to the backend. */
 export interface QueryParams {
@@ -58,40 +47,31 @@ export interface BuildQueryParamsInput {
 export function buildQueryParams(input: BuildQueryParamsInput): QueryParams {
   const { schema, entity, tableName, target, pkValues, skOp, skValues, sk2Values } = input;
 
-  const activePattern =
-    target === 'base' ? null : entity.indexPatterns.find((p) => p.index === target) ?? null;
-  const activeIndexDef = activePattern
-    ? schema.indexes.find((d) => d.name === activePattern.index) ?? null
-    : null;
+  const resolved = resolveTarget(schema, entity, target);
 
-  const activePkPattern = activePattern ? activePattern.pk : entity.pk;
-  const activeSkPattern = activePattern ? activePattern.sk : entity.sk;
-
-  const parsedPk = parsePattern(activePkPattern);
-  const parsedSk = parsePattern(activeSkPattern);
+  const parsedPk = parsePattern(resolved.pkPattern);
+  const parsedSk = parsePattern(resolved.skPattern);
 
   const pkValue = parsedPk.resolve(pkValues);
-  const pkName = activeIndexDef ? activeIndexDef.pkAttr : schema.keys.pk;
-  const skName = activeIndexDef ? activeIndexDef.skAttr ?? 'SK' : schema.keys.sk;
 
   let skCondition: SkCondition | undefined;
   if (skOp !== 'none') {
-    const skValue = parsedSk.variables.length > 0 ? parsedSk.resolve(skValues) : activeSkPattern;
+    const skValue = parsedSk.variables.length > 0 ? parsedSk.resolve(skValues) : resolved.skPattern;
     if (skOp === 'Eq') skCondition = { op: 'Eq', value: skValue };
     else if (skOp === 'BeginsWith') skCondition = { op: 'BeginsWith', value: skValue };
     else if (skOp === 'Between') {
-      const to = parsedSk.variables.length > 0 ? parsedSk.resolve(sk2Values) : activeSkPattern;
+      const to = parsedSk.variables.length > 0 ? parsedSk.resolve(sk2Values) : resolved.skPattern;
       skCondition = { op: 'Between', value: { from: skValue, to } };
     }
   }
 
   return {
     table: tableName,
-    pkName,
+    pkName: resolved.pkAttr,
     pkValue,
-    skName: skOp !== 'none' ? skName : undefined,
+    skName: skOp !== 'none' ? resolved.skAttr : undefined,
     skCondition,
-    indexName: activePattern ? activePattern.index : undefined,
+    indexName: resolved.indexName,
     filters: input.filters && input.filters.length > 0 ? input.filters : undefined,
   };
 }

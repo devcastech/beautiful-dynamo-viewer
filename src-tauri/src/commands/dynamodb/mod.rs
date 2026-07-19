@@ -85,17 +85,19 @@ fn to_attr(value: &str, t: &ValueType) -> AttributeValue {
         ValueType::Number => AttributeValue::N(value.to_string()),
     }
 }
-#[tauri::command]
-pub async fn query_table(
-    client: tauri::State<'_, Mutex<Client>>,
-    params: QueryParams,
-) -> Result<QueryResult, AppError> {
-    println!("query_table: params={:?}", params);
-    // .lock().await obtiene acceso exclusivo al Client.
-    // Devuelve un MutexGuard<Client> — cuando sale del scope se libera el lock.
-    // El `client` de aquí en adelante es el Client real, no el Mutex.
-    let client = client.lock().await;
+/// Todo lo que la Query necesita además del table/index/limit: expresiones y
+/// sus mapas de placeholders. Separado de `query_table` para poder testearlo
+/// sin un `Client` (es lógica pura sobre los params).
+#[derive(Debug)]
+pub struct BuiltExpressions {
+    pub key_condition: String,
+    pub attr_names: HashMap<String, String>,
+    pub attr_values: HashMap<String, AttributeValue>,
+    /// None cuando no hay filtros activos.
+    pub filter_expression: Option<String>,
+}
 
+pub fn build_expressions(params: &QueryParams) -> BuiltExpressions {
     // ── 1. Construir los mapas de expression ─────────────────────────────────
     //
     // DynamoDB tiene ~600 reserved words (STATUS, NAME, DATE, etc.).
@@ -192,11 +194,31 @@ pub async fn query_table(
         filter_parts.push(part);
     }
 
+    BuiltExpressions {
+        key_condition,
+        attr_names,
+        attr_values,
+        filter_expression: if filter_parts.is_empty() {
+            None
+        } else {
+            // TODO: pending to use dynamic param for operators AND|OR
+            Some(filter_parts.join(" AND "))
+        },
+    }
+}
 
-    println!("query_table: key_condition={:?}", key_condition);
-    println!("query_table: attr_names={:?}", attr_names);
-    println!("query_table: attr_values={:?}", attr_values);
-    println!("query_table: filter={:?}", filter_parts);
+#[tauri::command]
+pub async fn query_table(
+    client: tauri::State<'_, Mutex<Client>>,
+    params: QueryParams,
+) -> Result<QueryResult, AppError> {
+    // .lock().await obtiene acceso exclusivo al Client.
+    // Devuelve un MutexGuard<Client> — cuando sale del scope se libera el lock.
+    // El `client` de aquí en adelante es el Client real, no el Mutex.
+    let client = client.lock().await;
+
+    let built = build_expressions(&params);
+
     // ── 4. Ejecutar una página (paginación nativa) ───────────────────────────
     //
     // Leemos `limit` items que cumplen la KeyCondition y aplicamos el
@@ -207,14 +229,14 @@ pub async fn query_table(
     let mut builder = client
         .query()
         .table_name(&params.table)
-        .key_condition_expression(key_condition)
-        .set_expression_attribute_names(Some(attr_names))
-        .set_expression_attribute_values(Some(attr_values))
+        .key_condition_expression(built.key_condition)
+        .set_expression_attribute_names(Some(built.attr_names))
+        .set_expression_attribute_values(Some(built.attr_values))
         .set_index_name(params.index_name)
         .limit(params.limit.unwrap_or(10));
 
-    if !filter_parts.is_empty() {
-        builder = builder.filter_expression(filter_parts.join(" AND ")); // TODO: pending to use dynamic param for operators AND|OR
+    if let Some(filter) = built.filter_expression {
+        builder = builder.filter_expression(filter);
     }
 
     if let Some(esk) = params.exclusive_start_key {
@@ -254,4 +276,222 @@ pub async fn query_table(
         truncated: last_key.is_some(),
         last_key,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base_params() -> QueryParams {
+        QueryParams {
+            table: "t".into(),
+            pk_name: "PK".into(),
+            pk_value: "ORDER#1".into(),
+            sk_name: None,
+            sk_condition: None,
+            index_name: None,
+            limit: None,
+            exclusive_start_key: None,
+            filters: None,
+        }
+    }
+
+    fn s(v: &str) -> AttributeValue {
+        AttributeValue::S(v.into())
+    }
+    fn n(v: &str) -> AttributeValue {
+        AttributeValue::N(v.into())
+    }
+
+    // ── build_expressions ────────────────────────────────────────────────────
+
+    #[test]
+    fn no_sk_condition_queries_pk_only() {
+        let built = build_expressions(&base_params());
+        assert_eq!(built.key_condition, "#pk = :pk");
+        assert_eq!(built.attr_names["#pk"], "PK");
+        assert_eq!(built.attr_values[":pk"], s("ORDER#1"));
+        assert!(built.filter_expression.is_none());
+    }
+
+    #[test]
+    fn sk_eq_maps_the_given_sk_name() {
+        let built = build_expressions(&QueryParams {
+            sk_name: Some("GSI1SK".into()),
+            sk_condition: Some(SkCondition::Eq("ORDER".into())),
+            ..base_params()
+        });
+        assert_eq!(built.key_condition, "#pk = :pk AND #sk = :sk");
+        assert_eq!(built.attr_names["#sk"], "GSI1SK");
+        assert_eq!(built.attr_values[":sk"], s("ORDER"));
+    }
+
+    #[test]
+    fn sk_name_defaults_to_sk_when_missing() {
+        let built = build_expressions(&QueryParams {
+            sk_condition: Some(SkCondition::Eq("ORDER".into())),
+            ..base_params()
+        });
+        assert_eq!(built.attr_names["#sk"], "SK");
+    }
+
+    #[test]
+    fn sk_begins_with() {
+        let built = build_expressions(&QueryParams {
+            sk_condition: Some(SkCondition::BeginsWith("SHIPMENT#".into())),
+            ..base_params()
+        });
+        assert_eq!(built.key_condition, "#pk = :pk AND begins_with(#sk, :sk)");
+        assert_eq!(built.attr_values[":sk"], s("SHIPMENT#"));
+    }
+
+    #[test]
+    fn sk_between_binds_both_ends() {
+        let built = build_expressions(&QueryParams {
+            sk_condition: Some(SkCondition::Between(BetweenValues {
+                from: "A".into(),
+                to: "B".into(),
+            })),
+            ..base_params()
+        });
+        assert_eq!(built.key_condition, "#pk = :pk AND #sk BETWEEN :from AND :to");
+        assert_eq!(built.attr_values[":from"], s("A"));
+        assert_eq!(built.attr_values[":to"], s("B"));
+    }
+
+    #[test]
+    fn filter_eq_string_and_number_pick_the_attr_type() {
+        let built = build_expressions(&QueryParams {
+            filters: Some(vec![
+                Filter {
+                    name: "status".into(),
+                    value_type: ValueType::String,
+                    condition: FilterOp::Eq("SHIPPED".into()),
+                },
+                Filter {
+                    name: "total".into(),
+                    value_type: ValueType::Number,
+                    condition: FilterOp::Eq("42".into()),
+                },
+            ]),
+            ..base_params()
+        });
+        assert_eq!(built.filter_expression.as_deref(), Some("#f0 = :f0 AND #f1 = :f1"));
+        assert_eq!(built.attr_names["#f0"], "status");
+        assert_eq!(built.attr_values[":f0"], s("SHIPPED"));
+        assert_eq!(built.attr_values[":f1"], n("42"));
+    }
+
+    #[test]
+    fn filter_between_number_binds_typed_bounds() {
+        let built = build_expressions(&QueryParams {
+            filters: Some(vec![Filter {
+                name: "total".into(),
+                value_type: ValueType::Number,
+                condition: FilterOp::Between(BetweenValues {
+                    from: "10".into(),
+                    to: "100".into(),
+                }),
+            }]),
+            ..base_params()
+        });
+        assert_eq!(
+            built.filter_expression.as_deref(),
+            Some("#f0 BETWEEN :f0from AND :f0to")
+        );
+        assert_eq!(built.attr_values[":f0from"], n("10"));
+        assert_eq!(built.attr_values[":f0to"], n("100"));
+    }
+
+    #[test]
+    fn filter_begins_with_and_contains_always_query_as_strings() {
+        let built = build_expressions(&QueryParams {
+            filters: Some(vec![
+                Filter {
+                    name: "sku".into(),
+                    value_type: ValueType::Number,
+                    condition: FilterOp::BeginsWith("9".into()),
+                },
+                Filter {
+                    name: "notes".into(),
+                    value_type: ValueType::String,
+                    condition: FilterOp::Contains("urgent".into()),
+                },
+            ]),
+            ..base_params()
+        });
+        assert_eq!(
+            built.filter_expression.as_deref(),
+            Some("begins_with(#f0, :f0) AND contains(#f1, :f1)")
+        );
+        assert_eq!(built.attr_values[":f0"], s("9"));
+        assert_eq!(built.attr_values[":f1"], s("urgent"));
+    }
+
+    #[test]
+    fn empty_filters_produce_no_filter_expression() {
+        let built = build_expressions(&QueryParams {
+            filters: Some(vec![]),
+            ..base_params()
+        });
+        assert!(built.filter_expression.is_none());
+    }
+
+    // ── Contrato con el frontend ─────────────────────────────────────────────
+    //
+    // Los fixtures en fixtures/query-params/ son el JSON exacto que produce
+    // buildQueryParams en el frontend (verificado por contract.test.ts). Si
+    // cambia el shape de un lado sin el otro, uno de los dos tests revienta.
+
+    fn from_fixture(json: &str) -> QueryParams {
+        serde_json::from_str(json).expect("fixture must deserialize into QueryParams")
+    }
+
+    #[test]
+    fn contract_base_no_sk() {
+        let p = from_fixture(include_str!("../../../../fixtures/query-params/base-no-sk.json"));
+        assert_eq!(p.table, "ecommerce-demo");
+        assert_eq!(p.pk_name, "PK");
+        assert_eq!(p.pk_value, "ORDER#o-123");
+        assert!(p.sk_condition.is_none() && p.index_name.is_none() && p.filters.is_none());
+    }
+
+    #[test]
+    fn contract_gsi_begins_with() {
+        let p = from_fixture(include_str!(
+            "../../../../fixtures/query-params/gsi-begins-with.json"
+        ));
+        assert_eq!(p.index_name.as_deref(), Some("GSI1"));
+        assert_eq!(p.sk_name.as_deref(), Some("GSI1SK"));
+        assert_eq!(p.limit, Some(25));
+        assert!(matches!(p.sk_condition, Some(SkCondition::BeginsWith(ref v)) if v == "ORDER#2024-"));
+    }
+
+    #[test]
+    fn contract_between_with_filters() {
+        let p = from_fixture(include_str!(
+            "../../../../fixtures/query-params/between-filters.json"
+        ));
+        assert!(matches!(
+            p.sk_condition,
+            Some(SkCondition::Between(ref b)) if b.from == "ITEM#001" && b.to == "ITEM#999"
+        ));
+        let filters = p.filters.as_ref().expect("filters present");
+        assert_eq!(filters.len(), 2);
+        assert!(matches!(filters[0].value_type, ValueType::String));
+        assert!(matches!(filters[1].value_type, ValueType::Number));
+        // Y las expresiones que salen de ese payload usan el tipo correcto.
+        let built = build_expressions(&p);
+        assert_eq!(built.attr_values[":f1from"], n("10"));
+    }
+
+    #[test]
+    fn contract_contains_with_start_key() {
+        let p = from_fixture(include_str!(
+            "../../../../fixtures/query-params/contains-filter.json"
+        ));
+        assert!(p.exclusive_start_key.is_some());
+        let filters = p.filters.as_ref().expect("filters present");
+        assert!(matches!(filters[0].condition, FilterOp::Contains(ref v) if v == "urgent"));
+    }
 }

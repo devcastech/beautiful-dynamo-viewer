@@ -133,7 +133,7 @@ function StatusRow({ aws }: { aws: AwsConnection }) {
       type="button"
       onClick={() => void aws.ssoLogin()}
       aria-label={`Sign in to AWS profile ${aws.profile}`}
-      className="flex items-center gap-1 font-mono text-[11px] text-accent hover:bg-accent-dim bg-transparent border border-accent-line rounded-md px-2 py-[3px] cursor-pointer transition-colors"
+      className="flex items-center gap-1 font-mono text-[11px] text-accent hover:bg-accent-dim bg-transparent border border-accent-line rounded-md px-2 py-0.75 cursor-pointer transition-colors"
     >
       <CircleAlert width={11} height={11} aria-hidden="true" />
       sign in

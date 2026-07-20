@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { QueryResult } from '../hooks/useQueryExecutor.ts';
-import { CapacityUsage, Pager, ViewBtn } from './queryResults/index.tsx';
-import { TableView } from './queryResults/tableView.tsx';
+import type { QueryResult } from '../../hooks/useQueryExecutor.ts';
+import { CapacityUsage, Pager, ViewBtn } from './utils.tsx';
+import { TableView } from './tableView.tsx';
 
 interface QueryResultsProps {
   result: QueryResult;

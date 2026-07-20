@@ -9,7 +9,7 @@ interface FooterProps {
 /** Bottom status bar — extensible (left reserved for future actions), theme switcher on the right. */
 export function Footer({ theme }: FooterProps) {
   return (
-    <footer className="shrink-0 flex items-center justify-between gap-3 h-[26px] px-3 border-t border-line bg-surface">
+    <footer className="shrink-0 flex items-center justify-between gap-3 h-6.5 px-3 border-t border-line bg-surface">
       {/* Reserved for future quick-access actions (Bruno-style status bar). */}
       <div className="flex items-center gap-3" />
 
@@ -22,7 +22,7 @@ export function Footer({ theme }: FooterProps) {
           options={theme.themes.map((t) => ({ value: t.id, label: t.label }))}
           align="right"
           openUp
-          className="py-[2px] text-[11px] border-line-dim"
+          className="py-0.5 text-[11px] border-line-dim"
         />
       </div>
     </footer>

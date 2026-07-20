@@ -174,7 +174,7 @@ export function EntityDrawer({
           <div className="flex flex-col gap-2">
             {draft.indexPatterns.map((pattern, i) => (
               <div key={i} className="border border-line rounded-md overflow-hidden">
-                <div className="flex items-center gap-2 py-[5px] px-2.5 bg-elevated border-b border-line">
+                <div className="flex items-center gap-2 py-2.5 px-2.5 bg-elevated border-b border-line">
                   <Input
                     value={pattern.index}
                     onChange={(e) => updatePattern(i, { index: e.target.value })}
@@ -228,11 +228,11 @@ export function EntityDrawer({
         </DrawerSection>
 
         <DrawerSection label="Attributes" hint="Documented item attributes (informational).">
-          <div className="flex flex-wrap gap-[5px] mb-2">
+          <div className="flex flex-wrap gap-1.25 mb-2">
             {draft.attributes.map((attr, i) => (
               <span
                 key={attr}
-                className="flex items-center gap-1 px-2 py-[3px] font-mono text-xs text-secondary bg-elevated border border-line rounded"
+                className="flex items-center gap-1 px-2 py-0.75 font-mono text-xs text-secondary bg-elevated border border-line rounded"
               >
                 {attr}
                 <IconButton label={`Remove attribute ${attr}`} onClick={() => removeAttr(i)} className="p-0">

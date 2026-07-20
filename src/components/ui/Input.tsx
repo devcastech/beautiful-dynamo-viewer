@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 
 const FIELD_CLS =
-  'bg-canvas border border-line rounded-md text-primary font-mono text-xs px-2 py-[5px] outline-none w-full focus:border-accent/50 transition-colors placeholder:text-muted/50';
+  'bg-canvas border border-line rounded-md text-primary font-mono text-xs px-2 py-1.25 outline-none w-full focus:border-accent/50 transition-colors placeholder:text-muted/50';
 
 export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input spellCheck={false} className={`${FIELD_CLS} ${className}`} {...rest} />;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { DatabaseZap, Plus, Upload } from 'lucide-react';
 import { TopBar } from './components/TopBar.tsx';
-import { Sidebar } from './components/Sidebar.tsx';
+import { Sidebar } from './components/sidebar/Sidebar.tsx';
 import { WorkspaceArea } from './components/WorkspaceArea.tsx';
 import { Footer } from './components/Footer.tsx';
 import { SchemaModal } from './components/SchemaModal.tsx';
@@ -157,7 +157,7 @@ export default function App() {
 
       {!schema ? (
         <main className="flex-1 flex items-center justify-center dot-grid">
-          <div className="bg-surface border border-line rounded-xl px-4 py-6 w-[420px]">
+          <div className="bg-surface border border-line rounded-xl px-4 py-6 w-105">
             <EmptyState
               icon={<DatabaseZap size={32} strokeWidth={1.5} />}
               title="No schemas yet"

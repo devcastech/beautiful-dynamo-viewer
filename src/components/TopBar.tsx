@@ -4,7 +4,7 @@ import { OverflowMenu } from './ui/OverflowMenu.tsx';
 import { IconButton } from './ui/Button.tsx';
 import { Select } from './ui/Select.tsx';
 import { ConnectionMenu } from './ConnectionMenu.tsx';
-import { WindowControls } from './WindowControls.tsx';
+import { WindowControls } from './ui/WindowControls.tsx';
 import { isMacOS } from '../services/runtime.ts';
 import { type AwsConnection } from '../hooks/useAwsConnection.ts';
 import type { TableSchema } from '../domain/schema/types.ts';
@@ -45,7 +45,7 @@ export function TopBar({
     <header
       data-tauri-drag-region
       className={`flex items-center gap-3 h-12 shrink-0 border-b border-line-dim bg-surface/60 pr-2 ${
-        isMacOS() ? 'pl-[84px]' : 'pl-4'
+        isMacOS() ? 'pl-21' : 'pl-4'
       }`}
     >
       <div data-tauri-drag-region className="flex items-center gap-2 shrink-0">

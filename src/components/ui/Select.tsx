@@ -139,7 +139,7 @@ export function Select({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={handleKeyDown}
-        className={`flex items-center justify-between gap-1.5 bg-elevated border border-line rounded-md text-primary font-mono text-xs px-2 py-[5px] cursor-pointer outline-none focus:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+        className={`flex items-center justify-between gap-1.5 bg-elevated border border-line rounded-md text-primary font-mono text-xs px-2 py-1.25 cursor-pointer outline-none focus:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
       >
         <span className={`truncate ${selected ? '' : 'text-muted/60'}`}>
           {selected ? selected.label : placeholder}
@@ -177,13 +177,13 @@ export function Select({
                   aria-activedescendant={optionId(highlight)}
                   aria-label="Filter options"
                   spellCheck={false}
-                  className="w-full bg-canvas border border-line-dim rounded text-primary font-mono text-[12px] pl-6 pr-2 py-[4px] outline-none focus:border-accent/50 transition-colors placeholder:text-muted/50"
+                  className="w-full bg-canvas border border-line-dim rounded text-primary font-mono text-[12px] pl-6 pr-2 py-1 outline-none focus:border-accent/50 transition-colors placeholder:text-muted/50"
                 />
               </div>
             </div>
           )}
 
-          <ul id={listId} role="listbox" aria-label={ariaLabel} className="max-h-[280px] overflow-y-auto m-0 px-1 list-none">
+          <ul id={listId} role="listbox" aria-label={ariaLabel} className="max-h-70 overflow-y-auto m-0 px-1 list-none">
             {filtered.length === 0 ? (
               <li className="px-2 py-1.5 font-mono text-[12px] text-muted/60">No matches</li>
             ) : (
@@ -202,7 +202,7 @@ export function Select({
                         e.preventDefault();
                         commit(option);
                       }}
-                      className={`w-full flex items-center gap-2 px-2 py-[5px] rounded text-left font-mono text-xs cursor-pointer border-0 transition-colors ${
+                      className={`w-full flex items-center gap-2 px-2 py-1.25 rounded text-left font-mono text-xs cursor-pointer border-0 transition-colors ${
                         isSelected
                           ? 'bg-accent-dim text-accent'
                           : isHighlighted

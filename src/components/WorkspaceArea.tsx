@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Box, MousePointerClick, Terminal } from 'lucide-react';
 import { EntityInspector } from './EntityInspector.tsx';
-import { QueryBuilder } from './QueryBuilder.tsx';
+import { QueryBuilder } from './querybuilder/QueryBuilder.tsx';
 import {
   fromQueryFilters,
   toQueryFilters,
   type FilterRow,
 } from './querybuilder/FiltersTable.tsx';
-import { QueryResults } from './QueryResults.tsx';
+import { QueryResults } from './queryResults/QueryResults.tsx';
 import { EmptyState } from './ui/EmptyState.tsx';
 import { Select } from './ui/Select.tsx';
 import { useQueryExecutor } from '../hooks/useQueryExecutor.ts';
@@ -93,7 +93,7 @@ export function WorkspaceArea({
           title="No entity selected"
         >
           Pick an entity from the library on the left to query it, or create one with the{' '}
-          <kbd className="font-mono text-[11px] px-1.5 py-[1px] border border-line rounded">+</kbd>{' '}
+          <kbd className="font-mono text-[11px] px-1.5 py-px border border-line rounded">+</kbd>{' '}
           button.
         </EmptyState>
       </div>
@@ -186,7 +186,7 @@ export function WorkspaceArea({
               onChangeFilters={setFilters}
               onSubmit={handleSubmit}
               executeDisabledReason={executeDisabledReason}
-              onSaveQuery={(name) =>
+              onSaveQuery={(name: string) =>
                 onSaveQuery({ id: crypto.randomUUID(), name, ...snapshotQuery() })
               }
               onUpdateQuery={
@@ -231,7 +231,7 @@ export function WorkspaceArea({
                 onChange={(v) => setPageSize(Number(v))}
                 options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
                 align="right"
-                className="px-1.5 py-[2px]"
+                className="px-1.5 py-0.5"
               />
             </div>
             <span aria-live="polite" className="sr-only">

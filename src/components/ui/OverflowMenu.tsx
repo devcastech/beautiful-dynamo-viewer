@@ -63,7 +63,7 @@ export function OverflowMenu({ items, ariaLabel = 'More actions' }: OverflowMenu
         <div
           role="menu"
           aria-label={ariaLabel}
-          className="absolute right-0 top-full mt-1 z-20 bg-elevated border border-line rounded-md shadow-xl py-1 min-w-[170px] animate-fade-in"
+          className="absolute right-0 top-full mt-1 z-20 bg-elevated border border-line rounded-md shadow-xl py-1 min-w-42.5 animate-fade-in"
         >
           {items.map((item, i) => (
             <button

@@ -154,7 +154,7 @@ function CycleChip<T extends string>({
       onClick={() => onChange(options[(idx + 1) % options.length].value)}
       aria-label={`${ariaLabel}: ${current.label}. Click to change.`}
       title={`${ariaLabel}: ${current.label} — click to cycle`}
-      className={`shrink-0 font-mono text-[11px] rounded px-1.5 py-[3px] border cursor-pointer transition-colors ${
+      className={`shrink-0 font-mono text-[11px] rounded px-1.5 py-0.75 border cursor-pointer transition-colors ${
         subtle
           ? 'text-muted border-line hover:text-secondary hover:border-line'
           : 'text-accent bg-accent-dim border-accent-line hover:border-accent'
@@ -193,7 +193,7 @@ function FilterTableRow({
             aria-checked={filter.enabled}
             aria-label={filter.enabled ? 'Disable filter' : 'Enable filter'}
             onClick={onToggle}
-            className={`flex items-center justify-center w-3.75 h-3.75 rounded-[4px] border transition-colors ${
+            className={`flex items-center justify-center w-3.75 h-3.75 rounded-sm border transition-colors ${
               filter.enabled
                 ? 'bg-accent border-accent text-canvas'
                 : 'bg-transparent border-line hover:border-accent/50'

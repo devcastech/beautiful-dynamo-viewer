@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use aws_sdk_dynamodb::error::ProvideErrorMetadata;
-use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::types::{AttributeValue, Capacity, ReturnConsumedCapacity};
 use aws_sdk_dynamodb::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,11 +21,29 @@ pub struct QueryParams {
 }
 
 #[derive(Debug, Serialize)]
+pub struct CapacityResult {
+    pub capacity_units: Option<f64>,
+    pub read_capacity_units: Option<f64>,
+    pub write_capacity_units: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConsumedCapacityResult {
+    pub table_name: Option<String>,
+    pub capacity_units: Option<f64>,
+    pub read_capacity_units: Option<f64>,
+    pub write_capacity_units: Option<f64>,
+    pub table: Option<CapacityResult>,
+    pub global_secondary_indexes: Option<HashMap<String, CapacityResult>>,
+    pub local_secondary_indexes: Option<HashMap<String, CapacityResult>>,
+}
+#[derive(Debug, Serialize)]
 pub struct QueryResult {
     pub items: Vec<serde_json::Value>,
     pub truncated: bool, // true si se alcanzó el límite de páginas/items
     pub count: usize,
     pub last_key: Option<serde_json::Value>,
+    pub consumed_capacity: Option<ConsumedCapacityResult>,
 }
 
 // El #[serde(tag = "op")] indica que el campo "op" del JSON determina el variante.
@@ -83,6 +101,14 @@ fn to_attr(value: &str, t: &ValueType) -> AttributeValue {
     match t {
         ValueType::String => AttributeValue::S(value.to_string()),
         ValueType::Number => AttributeValue::N(value.to_string()),
+    }
+}
+
+fn to_capacity_result(capacity: &Capacity) -> CapacityResult {
+    CapacityResult {
+        capacity_units: capacity.capacity_units(),
+        read_capacity_units: capacity.read_capacity_units(),
+        write_capacity_units: capacity.write_capacity_units(),
     }
 }
 /// Todo lo que la Query necesita además del table/index/limit: expresiones y
@@ -233,7 +259,8 @@ pub async fn query_table(
         .set_expression_attribute_names(Some(built.attr_names))
         .set_expression_attribute_values(Some(built.attr_values))
         .set_index_name(params.index_name)
-        .limit(params.limit.unwrap_or(10));
+        .limit(params.limit.unwrap_or(10))
+        .return_consumed_capacity(ReturnConsumedCapacity::Indexes);
 
     if let Some(filter) = built.filter_expression {
         builder = builder.filter_expression(filter);
@@ -270,11 +297,34 @@ pub async fn query_table(
             message: e.to_string(),
         })?;
 
+    let consumed_capacity = response
+        .consumed_capacity()
+        .map(|capacity| ConsumedCapacityResult {
+            table_name: capacity.table_name().map(str::to_owned),
+            capacity_units: capacity.capacity_units(),
+            read_capacity_units: capacity.read_capacity_units(),
+            write_capacity_units: capacity.write_capacity_units(),
+            table: capacity.table().map(to_capacity_result),
+            global_secondary_indexes: capacity.global_secondary_indexes().map(|indexes| {
+                indexes
+                    .iter()
+                    .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
+                    .collect()
+            }),
+            local_secondary_indexes: capacity.local_secondary_indexes().map(|indexes| {
+                indexes
+                    .iter()
+                    .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
+                    .collect()
+            }),
+        });
+
     Ok(QueryResult {
         count: items.len(),
         items,
         truncated: last_key.is_some(),
         last_key,
+        consumed_capacity,
     })
 }
 
@@ -440,7 +490,7 @@ mod tests {
     // ── Contrato con el frontend ─────────────────────────────────────────────
     //
     // Los fixtures en fixtures/query-params/ son el JSON exacto que produce
-    // buildQueryParams en el frontend (verificado por contract.test.ts). Si
+    // buildQueryParams en el frontend (contract.test.ts). Si
     // cambia el shape de un lado sin el otro, uno de los dos tests revienta.
 
     fn from_fixture(json: &str) -> QueryParams {

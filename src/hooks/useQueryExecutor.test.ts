@@ -22,7 +22,19 @@ describe('useQueryExecutor', () => {
   });
 
   it('execute fetches the first page with no start key', async () => {
-    mockQuery.mockResolvedValueOnce({ items: [{ id: 1 }], lastKey: { k: 'p2' } });
+    mockQuery.mockResolvedValueOnce({
+      items: [{ id: 1 }],
+      lastKey: { k: 'p2' },
+      consumedCapacity: {
+        table_name: 'T',
+        capacity_units: 0.5,
+        read_capacity_units: null,
+        write_capacity_units: null,
+        table: { capacity_units: 0.5, read_capacity_units: null, write_capacity_units: null },
+        global_secondary_indexes: null,
+        local_secondary_indexes: null,
+      },
+    });
     const { result } = renderHook(() => useQueryExecutor());
 
     await act(async () => {
@@ -33,6 +45,7 @@ describe('useQueryExecutor', () => {
     expect(result.current.result.status).toBe('success');
     expect(result.current.result.data).toEqual([{ id: 1 }]);
     expect(result.current.result.durationMs).toBeTypeOf('number');
+    expect(result.current.result.consumedCapacity?.capacity_units).toBe(0.5);
     expect(result.current.hasNext).toBe(true);
     expect(result.current.hasPrev).toBe(false);
   });

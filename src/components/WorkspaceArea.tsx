@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Box, MousePointerClick, Terminal } from 'lucide-react';
 import { EntityInspector } from './EntityInspector.tsx';
-import { QueryBuilder } from './querybuilder/QueryBuilder.tsx';
 import {
   fromQueryFilters,
   toQueryFilters,
@@ -15,6 +14,7 @@ import { useQueryExecutor } from '../hooks/useQueryExecutor.ts';
 import type { WorkspaceTab } from '../hooks/useWorkspace.ts';
 import type { Entity, SavedQuery, SkOp, TableSchema } from '../domain/schema/types.ts';
 import type { QueryParams } from '../services/dynamo.ts';
+import { QueryBuilder } from './querybuilder/QueryBuilder.tsx';
 
 interface WorkspaceAreaProps {
   schema: TableSchema;

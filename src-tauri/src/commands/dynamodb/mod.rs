@@ -1,10 +1,16 @@
 use crate::error::AppError;
 use aws_sdk_dynamodb::error::ProvideErrorMetadata;
+use aws_sdk_dynamodb::operation::query::QueryOutput;
 use aws_sdk_dynamodb::types::{AttributeValue, Capacity, ReturnConsumedCapacity};
 use aws_sdk_dynamodb::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
+
+
+// see:
+// - https://docs.aws.amazon.com/sdk-for-rust/latest/dg/rust_dynamodb_code_examples.html
+// - https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/rustv1/examples/dynamodb
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,9 +100,6 @@ pub struct Filter {
     pub condition: FilterOp,
 }
 
-// see:
-// - https://docs.aws.amazon.com/sdk-for-rust/latest/dg/rust_dynamodb_code_examples.html
-// - https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/rustv1/examples/dynamodb
 fn to_attr(value: &str, t: &ValueType) -> AttributeValue {
     match t {
         ValueType::String => AttributeValue::S(value.to_string()),
@@ -111,9 +114,33 @@ fn to_capacity_result(capacity: &Capacity) -> CapacityResult {
         write_capacity_units: capacity.write_capacity_units(),
     }
 }
-/// Todo lo que la Query necesita además del table/index/limit: expresiones y
-/// sus mapas de placeholders. Separado de `query_table` para poder testearlo
-/// sin un `Client` (es lógica pura sobre los params).
+
+fn extract_consumed_capacity(response: &QueryOutput) -> Option<ConsumedCapacityResult> {
+    response
+        .consumed_capacity()
+        .map(|capacity| ConsumedCapacityResult {
+            table_name: capacity.table_name().map(str::to_owned),
+            capacity_units: capacity.capacity_units(),
+            read_capacity_units: capacity.read_capacity_units(),
+            write_capacity_units: capacity.write_capacity_units(),
+            table: capacity.table().map(to_capacity_result),
+            global_secondary_indexes: capacity.global_secondary_indexes()
+                .map(|indexes| {
+                    indexes
+                        .iter()
+                        .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
+                        .collect()
+                }),
+            local_secondary_indexes: capacity.local_secondary_indexes()
+                .map(|indexes| {
+                    indexes
+                        .iter()
+                        .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
+                        .collect()
+                }),
+        })
+}
+
 #[derive(Debug)]
 pub struct BuiltExpressions {
     pub key_condition: String,
@@ -297,27 +324,7 @@ pub async fn query_table(
             message: e.to_string(),
         })?;
 
-    let consumed_capacity = response
-        .consumed_capacity()
-        .map(|capacity| ConsumedCapacityResult {
-            table_name: capacity.table_name().map(str::to_owned),
-            capacity_units: capacity.capacity_units(),
-            read_capacity_units: capacity.read_capacity_units(),
-            write_capacity_units: capacity.write_capacity_units(),
-            table: capacity.table().map(to_capacity_result),
-            global_secondary_indexes: capacity.global_secondary_indexes().map(|indexes| {
-                indexes
-                    .iter()
-                    .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
-                    .collect()
-            }),
-            local_secondary_indexes: capacity.local_secondary_indexes().map(|indexes| {
-                indexes
-                    .iter()
-                    .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
-                    .collect()
-            }),
-        });
+    let consumed_capacity = extract_consumed_capacity(&response);
 
     Ok(QueryResult {
         count: items.len(),
@@ -327,6 +334,7 @@ pub async fn query_table(
         consumed_capacity,
     })
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -404,7 +412,10 @@ mod tests {
             })),
             ..base_params()
         });
-        assert_eq!(built.key_condition, "#pk = :pk AND #sk BETWEEN :from AND :to");
+        assert_eq!(
+            built.key_condition,
+            "#pk = :pk AND #sk BETWEEN :from AND :to"
+        );
         assert_eq!(built.attr_values[":from"], s("A"));
         assert_eq!(built.attr_values[":to"], s("B"));
     }
@@ -426,7 +437,10 @@ mod tests {
             ]),
             ..base_params()
         });
-        assert_eq!(built.filter_expression.as_deref(), Some("#f0 = :f0 AND #f1 = :f1"));
+        assert_eq!(
+            built.filter_expression.as_deref(),
+            Some("#f0 = :f0 AND #f1 = :f1")
+        );
         assert_eq!(built.attr_names["#f0"], "status");
         assert_eq!(built.attr_values[":f0"], s("SHIPPED"));
         assert_eq!(built.attr_values[":f1"], n("42"));
@@ -499,7 +513,9 @@ mod tests {
 
     #[test]
     fn contract_base_no_sk() {
-        let p = from_fixture(include_str!("../../../../fixtures/query-params/base-no-sk.json"));
+        let p = from_fixture(include_str!(
+            "../../../../fixtures/query-params/base-no-sk.json"
+        ));
         assert_eq!(p.table, "ecommerce-demo");
         assert_eq!(p.pk_name, "PK");
         assert_eq!(p.pk_value, "ORDER#o-123");
@@ -514,7 +530,9 @@ mod tests {
         assert_eq!(p.index_name.as_deref(), Some("GSI1"));
         assert_eq!(p.sk_name.as_deref(), Some("GSI1SK"));
         assert_eq!(p.limit, Some(25));
-        assert!(matches!(p.sk_condition, Some(SkCondition::BeginsWith(ref v)) if v == "ORDER#2024-"));
+        assert!(
+            matches!(p.sk_condition, Some(SkCondition::BeginsWith(ref v)) if v == "ORDER#2024-")
+        );
     }
 
     #[test]

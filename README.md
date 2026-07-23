@@ -1,52 +1,29 @@
 # dynamo.viewer
 
-Desktop tool (Tauri + React) for exploring DynamoDB single-table designs. You describe how a
-table is modeled once — its entities, key patterns and indexes — and from then on you query it
-by filling in pattern variables instead of hand-writing key conditions.
+Desktop tool (Tauri + React) for exploring DynamoDB single-table designs. You model a table
+once   its entities, key patterns and indexes and from then on query it by filling in
+pattern variables instead of hand-writing key conditions.
 
-## Conceptual model
+## Features
 
-```
-Schema                ← one DynamoDB table, modeled
-├── keys              ← physical key attributes (e.g. PK / SK)
-├── indexes           ← table-level GSI definitions (name → pkAttr/skAttr)
-├── entities          ← record types living in the table
-│   ├── pk / sk       ← key patterns, e.g. ORDER#<orderId> / ORDER
-│   └── indexPatterns ← how the entity writes its keys into each GSI
-└── queries           ← saved queries, each referencing an entity
-```
+- **Model once, query many** describe entities, key patterns (`ORDER#<orderId>`) and GSIs,
+  then query by filling variables.
+- **Saved queries**  bookmark builder state (index, variable values, SK condition, filters).
+- **Postman-style filters** conditions on non-key attributes, rows toggleable without deleting.
+- **AWS profiles & SSO** pick a profile and sign in from the top bar.
+- **Import/export schemas** one schema per JSON file, deeply validated.
+- **Auto-updates** the app checks GitHub Releases and can update itself.
 
-- **Schema** — a model of one table. `name` is the display label; `tableName` is the real
-  DynamoDB table queries run against (overridable in the top bar to point at another stage).
-- **Entity** — a record type. Its `pk`/`sk` are *patterns* with `<variables>`; entities sharing
-  a PK pattern are grouped in the sidebar as one partition.
-- **Index pattern** — what the entity writes into a GSI. The GSI itself (its physical
-  attributes) is defined once at schema level and created automatically the first time an
-  entity references it; edit attribute names under *Edit schema*.
-- **Saved query** — a bookmarked builder state (target index, variable values, SK condition,
-  filters).
-- **Filter** — a condition on a non-key attribute (Eq / BeginsWith / Contains / Between, typed
-  as string or number), applied as a DynamoDB `FilterExpression` after the key condition. Edited
-  in a Postman-style table where rows can be disabled without deleting them.
-
-## Workspace persistence
-
-Everything is stored in `workspace.json` inside the app-data directory
-(`~/Library/Application Support/<bundle-id>/` on macOS), written atomically on every change.
-In browser dev mode (`pnpm dev` without Tauri) it falls back to localStorage and query
-execution is disabled.
-
-## Schema JSON (import/export)
-
-One schema per file, carrying a `version` field (`2` today). Import validates the file deeply
-and rejects anything malformed or from another version with a precise error. The
-`/dynamo-schema` Claude command generates this format from service code.
-
-## Development
+## Quick start
 
 ```sh
 pnpm install
-pnpm tauri dev    # desktop app (requires Rust toolchain + AWS CLI for profiles)
+pnpm tauri dev    # desktop app (needs Rust toolchain + AWS CLI for profiles)
+```
+
+Other commands:
+
+```sh
 pnpm dev          # browser-only UI dev (no query execution)
 pnpm test         # domain tests (vitest)
 pnpm test:rust    # backend tests (cargo test in src-tauri)
@@ -56,15 +33,38 @@ pnpm build        # typecheck + bundle
 Querying real tables requires the AWS CLI configured with profiles; SSO login is triggered
 from the top bar.
 
-## Code layout
+## Concepts
+
+```
+Schema                ← one DynamoDB table, modeled
+├── keys              ← physical key attributes (e.g. PK / SK)
+├── indexes           ← table-level GSI definitions
+├── entities          ← record types, with key patterns and index patterns
+└── queries           ← saved queries, each referencing an entity
+```
+
+- **Schema**   a model of one table. `tableName` is the real table queries run against
+  (overridable in the top bar to point at another stage).
+- **Entity**   a record type; its `pk`/`sk` are patterns with `<variables>`.
+- **Saved query**   a bookmarked builder state.
+- **Filter**   a condition on a non-key attribute, applied as a DynamoDB `FilterExpression`.
+
+Everything is stored in `workspace.json` in the app-data directory, written atomically on every
+change. In browser dev mode it falls back to localStorage and query execution is disabled.
+
+## Project layout
 
 ```
 src/
-├── domain/schema/   pure logic: types, operations, migration, grouping, pattern parser (+ tests)
-├── services/        Tauri bridges: dynamo, aws, storage, dialogs
+├── domain/schema/   pure logic: types, operations, grouping, pattern parser (+ tests)
+├── services/        Tauri bridges: dynamo, aws, storage, dialogs, updater
 ├── hooks/           useSchemaStore, useWorkspace, useAwsConnection, useQueryExecutor
-├── components/      UI (components/ui/ shared primitives, components/querybuilder/ filter table)
+├── components/      UI (components/ui/ primitives, components/querybuilder/ filter table)
 └── data/seed.ts     example schemas
 src-tauri/           Rust backend: DynamoDB queries, AWS profiles, workspace persistence
-fixtures/            query-param JSON asserted by both vitest and cargo contract tests
+.github/workflows/   test (CI) and release (build + publish) pipelines
 ```
+
+## License
+
+[MIT](LICENSE) © Eduar Tech

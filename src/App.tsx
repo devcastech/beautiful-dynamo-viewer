@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { DatabaseZap, Plus, Upload } from 'lucide-react';
 import { TopBar } from './components/TopBar.tsx';
@@ -18,7 +18,8 @@ import { isTauriRuntime } from './services/runtime.ts';
 import { alertDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
 import { parseSchemaImport } from './domain/schema/migrate.ts';
 import type { Entity, TableSchema } from './domain/schema/types.ts';
-import { checkForUpdates } from './services/updater.ts';
+import { useUpdater } from './hooks/useUpdater.ts';
+import { useAppVersion } from './hooks/useAppVersion.ts';
 
 const repo = createSchemaRepository();
 
@@ -27,8 +28,8 @@ export default function App() {
   const aws = useAwsConnection();
   const ws = useWorkspace();
   const theme = useTheme();
-  const [availableUpdates, setAvailableUpdates] = useState<boolean>(false);
-  console.log("availableUpdates: ", availableUpdates)
+  const updater = useUpdater();
+  const version = useAppVersion();
 
   const [schemaModal, setSchemaModal] = useState<'add' | 'edit' | null>(null);
   const [tableOverride, setTableOverride] = useState<string | undefined>(undefined);
@@ -118,21 +119,6 @@ export default function App() {
     ws.dispatch({ type: 'entityDeleted', name: entityName });
   }
 
-
-  useEffect(
-    () => {
-      async function checkUpdates(){
-        const updates = await checkForUpdates();
-        setAvailableUpdates(updates);
-      }
-      checkUpdates();
-    },
-    [],
-  )
-
-  function handleInstallUpdate() {
-    void checkForUpdates(true);
-  }
   // ---- Render ----
 
   if (store.loading) {
@@ -255,11 +241,7 @@ export default function App() {
         </main>
       )}
 
-      <Footer
-        theme={theme}
-        updateAvailable={availableUpdates}
-        onInstallUpdate={handleInstallUpdate}
-      />
+      <Footer theme={theme} version={version} updater={updater} />
 
       {schemaModal && (
         <SchemaModal

@@ -1,39 +1,40 @@
-import { check } from '@tauri-apps/plugin-updater';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
-export async function checkForUpdates(install: boolean = false): Promise<boolean> {
-  const update = await check();
-  try {
-    console.log('update:', update)
-    if (update && install) {
-      console.log(
-        `found update ${update.version} from ${update.date} with notes ${update.body}`
-      );
-      let downloaded = 0;
-      let contentLength = 0;
-      // alternatively we could also call update.download() and update.install() separately
-      await update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case 'Started':
-          contentLength = event.data.contentLength as number;
-          console.log(`started downloading ${event.data.contentLength} bytes`);
-          break;
-          case 'Progress':
-          downloaded += event.data.chunkLength;
-          console.log(`downloaded ${downloaded} from ${contentLength}`);
-          break;
-          case 'Finished':
-          console.log('download finished');
-          break;
-        }
-      });
+export type UpdateProgress = {
+  downloaded: number;
+  total: number;
+  percent: number;
+};
 
-      console.log('update installed');
-      await relaunch();
+export async function checkForUpdates(): Promise<Update | null> {
+  return await check();
+}
+
+export async function downloadAndInstall(
+  update: Update,
+  onProgress: (p: UpdateProgress) => void,
+): Promise<void> {
+  let downloaded = 0;
+  let total = 0;
+  await update.downloadAndInstall((event) => {
+    switch (event.event) {
+      case 'Started':
+        total = event.data.contentLength ?? 0;
+        onProgress({ downloaded: 0, total, percent: 0 });
+        break;
+      case 'Progress':
+        downloaded += event.data.chunkLength;
+        onProgress({
+          downloaded,
+          total,
+          percent: total ? Math.round((downloaded / total) * 100) : 0,
+        });
+        break;
+      case 'Finished':
+        onProgress({ downloaded, total, percent: 100 });
+        break;
     }
-  } catch (e) {
-    console.error(e);
-  } finally {
-    return update !== undefined;
-  }
+  });
+  await relaunch();
 }

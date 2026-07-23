@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { DatabaseZap, Plus, Upload } from 'lucide-react';
 import { TopBar } from './components/TopBar.tsx';
@@ -18,6 +18,7 @@ import { isTauriRuntime } from './services/runtime.ts';
 import { alertDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
 import { parseSchemaImport } from './domain/schema/migrate.ts';
 import type { Entity, TableSchema } from './domain/schema/types.ts';
+import { checkForUpdates } from './services/updater.ts';
 
 const repo = createSchemaRepository();
 
@@ -26,6 +27,7 @@ export default function App() {
   const aws = useAwsConnection();
   const ws = useWorkspace();
   const theme = useTheme();
+  const [availableUpdates, setAvailableUpdates] = useState<boolean>(false);
 
   const [schemaModal, setSchemaModal] = useState<'add' | 'edit' | null>(null);
   const [tableOverride, setTableOverride] = useState<string | undefined>(undefined);
@@ -115,6 +117,17 @@ export default function App() {
     ws.dispatch({ type: 'entityDeleted', name: entityName });
   }
 
+
+  useEffect(
+    () => {
+      async function checkUpdates(){
+        const updates = await checkForUpdates();
+        setAvailableUpdates(updates);
+      }
+      checkUpdates();
+    },
+    [],
+  )
   // ---- Render ----
 
   if (store.loading) {
@@ -128,17 +141,17 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-canvas overflow-hidden">
       <TopBar
-        schemas={store.schemas}
-        activeSchema={schema}
-        onSelectSchema={handleSelectSchema}
-        onNewSchema={() => setSchemaModal('add')}
-        onEditSchema={() => setSchemaModal('edit')}
-        onImportSchema={handleImportSchema}
-        onExportSchema={handleExportSchema}
-        onDeleteSchema={handleDeleteSchema}
-        tableName={tableName}
-        onTableNameChange={setTableOverride}
-        aws={aws}
+      schemas={store.schemas}
+      activeSchema={schema}
+      onSelectSchema={handleSelectSchema}
+      onNewSchema={() => setSchemaModal('add')}
+      onEditSchema={() => setSchemaModal('edit')}
+      onImportSchema={handleImportSchema}
+      onExportSchema={handleExportSchema}
+      onDeleteSchema={handleDeleteSchema}
+      tableName={tableName}
+      onTableNameChange={setTableOverride}
+      aws={aws}
       />
 
       {store.loadError && (
@@ -170,17 +183,17 @@ export default function App() {
                     Import JSON
                   </Button>
                   <input
-                    ref={setImportInput}
-                    type="file"
-                    accept=".json"
-                    className="hidden"
-                    aria-hidden="true"
-                    tabIndex={-1}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handleImportSchema(file);
-                      e.target.value = '';
-                    }}
+                  ref={setImportInput}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleImportSchema(file);
+                    e.target.value = '';
+                  }}
                   />
                 </>
               }
@@ -195,42 +208,42 @@ export default function App() {
           <Group className="flex-1 min-h-0 gap-1 p-2">
             <Panel defaultSize={20} minSize={14}>
               <Sidebar
-                schema={schema}
-                selectedEntityName={entity?.name ?? null}
-                activeQueryId={ws.queryId}
-                onSelectEntity={(name) => ws.dispatch({ type: 'selectEntity', name })}
-                onSelectIndex={(entityName, indexName) =>
-                  ws.dispatch({ type: 'selectIndex', entityName, indexName })
-                }
-                onSelectQuery={(query) => ws.dispatch({ type: 'selectQuery', query })}
-                onAddEntity={(partitionKey) => ws.dispatch({ type: 'openNewEntity', partitionKey })}
-                onEditEntity={(name) => ws.dispatch({ type: 'openEditEntity', name })}
-                onDeleteEntity={(name) => void handleDeleteEntity(name)}
-                onRenameQuery={(id, name) => store.renameQuery(id, name)}
-                onDeleteQuery={(id) => {
-                  store.deleteQuery(id);
-                  ws.dispatch({ type: 'queryDeleted', id });
-                }}
+              schema={schema}
+              selectedEntityName={entity?.name ?? null}
+              activeQueryId={ws.queryId}
+              onSelectEntity={(name) => ws.dispatch({ type: 'selectEntity', name })}
+              onSelectIndex={(entityName, indexName) =>
+                ws.dispatch({ type: 'selectIndex', entityName, indexName })
+              }
+              onSelectQuery={(query) => ws.dispatch({ type: 'selectQuery', query })}
+              onAddEntity={(partitionKey) => ws.dispatch({ type: 'openNewEntity', partitionKey })}
+              onEditEntity={(name) => ws.dispatch({ type: 'openEditEntity', name })}
+              onDeleteEntity={(name) => void handleDeleteEntity(name)}
+              onRenameQuery={(id, name) => store.renameQuery(id, name)}
+              onDeleteQuery={(id) => {
+                store.deleteQuery(id);
+                ws.dispatch({ type: 'queryDeleted', id });
+              }}
               />
             </Panel>
             <Separator className="w-1 cursor-col-resize hover:bg-accent/40 transition-colors rounded" />
             <Panel defaultSize={80} minSize={40}>
               <WorkspaceArea
-                schema={schema}
-                entity={entity}
-                tableName={tableName}
-                tab={ws.tab}
-                onTabChange={(tab) => ws.dispatch({ type: 'setTab', tab })}
-                loadedQuery={ws.loadedQuery}
-                loadSeq={ws.loadSeq}
-                activeQuery={activeQuery}
-                executeDisabledReason={executeDisabledReason}
-                onSaveQuery={(query) => {
-                  store.addQuery(query);
-                  ws.dispatch({ type: 'querySaved', id: query.id });
-                }}
-                onUpdateQuery={(query) => store.updateQuery(query)}
-                onEditEntity={() => ws.dispatch({ type: 'openEditEntity' })}
+              schema={schema}
+              entity={entity}
+              tableName={tableName}
+              tab={ws.tab}
+              onTabChange={(tab) => ws.dispatch({ type: 'setTab', tab })}
+              loadedQuery={ws.loadedQuery}
+              loadSeq={ws.loadSeq}
+              activeQuery={activeQuery}
+              executeDisabledReason={executeDisabledReason}
+              onSaveQuery={(query) => {
+                store.addQuery(query);
+                ws.dispatch({ type: 'querySaved', id: query.id });
+              }}
+              onUpdateQuery={(query) => store.updateQuery(query)}
+              onEditEntity={() => ws.dispatch({ type: 'openEditEntity' })}
               />
             </Panel>
           </Group>
@@ -241,27 +254,27 @@ export default function App() {
 
       {schemaModal && (
         <SchemaModal
-          mode={schemaModal}
-          initial={schemaModal === 'edit' ? schema ?? undefined : undefined}
-          onConfirm={(next: TableSchema) => {
-            if (schemaModal === 'add') store.addSchema(next);
+        mode={schemaModal}
+        initial={schemaModal === 'edit' ? schema ?? undefined : undefined}
+        onConfirm={(next: TableSchema) => {
+          if (schemaModal === 'add') store.addSchema(next);
             else store.updateSchema(next);
-            setSchemaModal(null);
-          }}
-          onClose={() => setSchemaModal(null)}
+          setSchemaModal(null);
+        }}
+        onClose={() => setSchemaModal(null)}
         />
       )}
 
       {ws.draft && schema && (
         <EntityDrawer
-          schema={schema}
-          entity={ws.draft.kind === 'edit' ? entity : null}
-          initialPartitionKey={ws.draft.kind === 'new' ? ws.draft.partitionKey : ''}
-          onSave={handleSaveEntity}
-          onDelete={
-            ws.draft.kind === 'edit' && entity ? () => void handleDeleteEntity(entity.name) : undefined
-          }
-          onClose={() => ws.dispatch({ type: 'closeDraft' })}
+        schema={schema}
+        entity={ws.draft.kind === 'edit' ? entity : null}
+        initialPartitionKey={ws.draft.kind === 'new' ? ws.draft.partitionKey : ''}
+        onSave={handleSaveEntity}
+        onDelete={
+          ws.draft.kind === 'edit' && entity ? () => void handleDeleteEntity(entity.name) : undefined
+        }
+        onClose={() => ws.dispatch({ type: 'closeDraft' })}
         />
       )}
     </div>

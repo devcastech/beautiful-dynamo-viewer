@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 
-
 // see:
 // - https://docs.aws.amazon.com/sdk-for-rust/latest/dg/rust_dynamodb_code_examples.html
 // - https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/rustv1/examples/dynamodb
@@ -124,20 +123,18 @@ fn extract_consumed_capacity(response: &QueryOutput) -> Option<ConsumedCapacityR
             read_capacity_units: capacity.read_capacity_units(),
             write_capacity_units: capacity.write_capacity_units(),
             table: capacity.table().map(to_capacity_result),
-            global_secondary_indexes: capacity.global_secondary_indexes()
-                .map(|indexes| {
-                    indexes
-                        .iter()
-                        .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
-                        .collect()
-                }),
-            local_secondary_indexes: capacity.local_secondary_indexes()
-                .map(|indexes| {
-                    indexes
-                        .iter()
-                        .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
-                        .collect()
-                }),
+            global_secondary_indexes: capacity.global_secondary_indexes().map(|indexes| {
+                indexes
+                    .iter()
+                    .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
+                    .collect()
+            }),
+            local_secondary_indexes: capacity.local_secondary_indexes().map(|indexes| {
+                indexes
+                    .iter()
+                    .map(|(name, capacity)| (name.clone(), to_capacity_result(capacity)))
+                    .collect()
+            }),
         })
 }
 
@@ -334,7 +331,6 @@ pub async fn query_table(
         consumed_capacity,
     })
 }
-
 
 #[cfg(test)]
 mod tests {

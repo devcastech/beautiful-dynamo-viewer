@@ -1,5 +1,5 @@
-use aws_sdk_dynamodb::Client;
 use crate::error::AppError;
+use aws_sdk_dynamodb::Client;
 use tokio::sync::Mutex;
 
 fn aws() -> tokio::process::Command {
@@ -7,9 +7,13 @@ fn aws() -> tokio::process::Command {
     #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
     let mut cmd = tokio::process::Command::new("aws");
     // GUI apps on macOS don't inherit the shell PATH; prepend common install locations.
-    #[cfg(target_os = "macos")] {
+    #[cfg(target_os = "macos")]
+    {
         let existing = std::env::var("PATH").unwrap_or_default();
-        cmd.env("PATH", format!("/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{existing}"));
+        cmd.env(
+            "PATH",
+            format!("/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{existing}"),
+        );
     }
     cmd
 }
@@ -57,7 +61,9 @@ pub async fn check_aws_profile(profile: String) -> Result<bool, AppError> {
             .output(),
     )
     .await
-    .map_err(|_| AppError { message: "profile check timed out".into() })?
+    .map_err(|_| AppError {
+        message: "profile check timed out".into(),
+    })?
     .map_err(AppError::from)?;
 
     Ok(output.status.success())

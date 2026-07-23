@@ -14,7 +14,9 @@ export function Footer({ theme, version, updater }: FooterProps) {
   return (
     <footer className="shrink-0 flex items-center justify-between gap-3 h-6.5 px-3 border-t border-line bg-surface">
       <div className="flex items-center gap-3">
-        {version && <span className="text-[11px] text-muted">v{version}</span>}
+        {version && (
+          <span className="text-[11px] text-muted font-mono tabular-nums">v{version}</span>
+        )}
 
         {updater?.status === 'available' && (
           <button

@@ -28,6 +28,7 @@ export default function App() {
   const ws = useWorkspace();
   const theme = useTheme();
   const [availableUpdates, setAvailableUpdates] = useState<boolean>(false);
+  console.log("availableUpdates: ", availableUpdates)
 
   const [schemaModal, setSchemaModal] = useState<'add' | 'edit' | null>(null);
   const [tableOverride, setTableOverride] = useState<string | undefined>(undefined);
@@ -128,6 +129,10 @@ export default function App() {
     },
     [],
   )
+
+  function handleInstallUpdate() {
+    void checkForUpdates(true);
+  }
   // ---- Render ----
 
   if (store.loading) {
@@ -250,7 +255,11 @@ export default function App() {
         </main>
       )}
 
-      <Footer theme={theme} />
+      <Footer
+        theme={theme}
+        updateAvailable={availableUpdates}
+        onInstallUpdate={handleInstallUpdate}
+      />
 
       {schemaModal && (
         <SchemaModal

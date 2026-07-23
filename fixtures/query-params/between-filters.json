@@ -1,0 +1,15 @@
+{
+  "table": "ecommerce-demo",
+  "pkName": "PK",
+  "pkValue": "ORDER#o-123",
+  "skName": "SK",
+  "skCondition": { "op": "Between", "value": { "from": "ITEM#001", "to": "ITEM#999" } },
+  "filters": [
+    { "name": "status", "valueType": "string", "condition": { "op": "Eq", "value": "SHIPPED" } },
+    {
+      "name": "total",
+      "valueType": "number",
+      "condition": { "op": "Between", "value": { "from": "10", "to": "100" } }
+    }
+  ]
+}

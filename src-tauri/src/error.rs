@@ -7,13 +7,19 @@ pub struct AppError {
 
 impl From<aws_sdk_dynamodb::Error> for AppError {
     fn from(e: aws_sdk_dynamodb::Error) -> Self {
-        AppError { message: e.to_string() }
+        AppError {
+            message: e.to_string(),
+        }
     }
 }
 
-impl<E: std::fmt::Display, R: std::fmt::Debug> From<aws_sdk_dynamodb::error::SdkError<E, R>> for AppError {
+impl<E: std::fmt::Display, R: std::fmt::Debug> From<aws_sdk_dynamodb::error::SdkError<E, R>>
+    for AppError
+{
     fn from(e: aws_sdk_dynamodb::error::SdkError<E, R>) -> Self {
-        AppError { message: e.to_string() }
+        AppError {
+            message: e.to_string(),
+        }
     }
 }
 
@@ -23,14 +29,26 @@ impl std::fmt::Display for AppError {
     }
 }
 
+impl From<tauri::Error> for AppError {
+    fn from(e: tauri::Error) -> Self {
+        AppError {
+            message: e.to_string(),
+        }
+    }
+}
+
 impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
-        AppError { message: e.to_string() }
+        AppError {
+            message: e.to_string(),
+        }
     }
 }
 
 impl From<&str> for AppError {
     fn from(e: &str) -> Self {
-        AppError { message: e.to_string() }
+        AppError {
+            message: e.to_string(),
+        }
     }
 }

@@ -1,8 +1,8 @@
 [package]
 name = "beautiful-dynamo-viewer"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "DynamoDB viewer"
+authors = ["eduar.tech"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -30,4 +30,7 @@ serde_json = "1"
 aws-config = "1.8.15"
 aws-sdk-dynamodb = "1.110.0"
 serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
+tauri-plugin-process = "2"
 
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"

@@ -1,6 +1,14 @@
 import { useCallback, useState } from 'react';
-import { queryTable } from '../lib/dynamo.ts';
-import type { QueryParams, QueryResult } from '../types/query.ts';
+import { queryTable, type ConsumedCapacity, type QueryParams } from '../services/dynamo.ts';
+
+export interface QueryResult {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  data: Record<string, unknown>[];
+  lastKey?: Record<string, unknown>;
+  error?: string;
+  durationMs?: number;
+  consumedCapacity?: ConsumedCapacity;
+}
 
 /** Tauri rejects commands with the serialized AppError struct ({ message }), which is a
  *  plain object — not an Error — so unwrap its message instead of stringifying to "[object Object]". */
@@ -33,8 +41,14 @@ export function useQueryExecutor(): QueryExecutor {
     setResult({ status: 'loading', data: [] });
     const start = Date.now();
     try {
-      const { items, lastKey } = await queryTable({ ...params, exclusiveStartKey: startKey });
-      setResult({ status: 'success', data: items, lastKey, durationMs: Date.now() - start });
+      const { items, lastKey, consumedCapacity } = await queryTable({ ...params, exclusiveStartKey: startKey });
+      setResult({
+        status: 'success',
+        data: items,
+        lastKey,
+        durationMs: Date.now() - start,
+        consumedCapacity,
+      });
     } catch (err) {
       setResult({
         status: 'error',

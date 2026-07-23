@@ -1,0 +1,9 @@
+{
+  "table": "ecommerce-demo",
+  "pkName": "PK",
+  "pkValue": "USER#u-9",
+  "filters": [
+    { "name": "notes", "valueType": "string", "condition": { "op": "Contains", "value": "urgent" } }
+  ],
+  "exclusiveStartKey": { "PK": "USER#u-9", "SK": "ORDER#2024-01-01" }
+}

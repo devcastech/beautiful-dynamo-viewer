@@ -1,0 +1,9 @@
+{
+  "table": "ecommerce-demo",
+  "pkName": "GSI1PK",
+  "pkValue": "USER#u-1",
+  "skName": "GSI1SK",
+  "skCondition": { "op": "BeginsWith", "value": "ORDER#2024-" },
+  "indexName": "GSI1",
+  "limit": 25
+}

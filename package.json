@@ -2,6 +2,17 @@
   "name": "beautiful-dynamo-viewer",
   "private": true,
   "version": "0.1.3",
+  "description": "Desktop tool for exploring DynamoDB single-table designs",
+  "license": "MIT",
+  "author": {
+    "name": "Eduar Tech",
+    "url": "https://eduar.tech/"
+  },
+  "homepage": "https://eduar.tech/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devcastech/beautiful-dynamo-viewer.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

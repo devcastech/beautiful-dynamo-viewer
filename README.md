@@ -4,6 +4,23 @@ Desktop tool (Tauri + React) for exploring DynamoDB single-table designs. You mo
 once (its entities, key patterns and indexes) and from then on query it by filling in
 pattern variables instead of hand-writing key conditions.
 
+![Main window: schema sidebar, query builder and results table](https://d2ej31l1pvxhz2.cloudfront.net/public/dynamo-viewer.png)
+
+<table>
+  <tr>
+    <td width="30%" valign="top">
+      <img src="https://d2ej31l1pvxhz2.cloudfront.net/public/dynamo-v-sidebar.png" alt="Schema sidebar: entities with key patterns and GSI patterns" />
+      <p align="center"><em>Entities & key patterns</em></p>
+    </td>
+    <td valign="top">
+      <img src="https://d2ej31l1pvxhz2.cloudfront.net/public/dynamo-v-query.png" alt="Query builder: partition key, sort key condition and filters" />
+      <p align="center"><em>Query builder</em></p>
+      <img src="https://d2ej31l1pvxhz2.cloudfront.net/public/dynamo-v-results.png" alt="Results table with items, latency and consumed RCUs" />
+      <p align="center"><em>Results</em></p>
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 - **Model once, query many**: describe entities, key patterns (`ORDER#<orderId>`) and GSIs,

@@ -13,6 +13,7 @@ import { useSchemaStore } from './hooks/useSchemaStore.ts';
 import { useAwsConnection } from './hooks/useAwsConnection.ts';
 import { useWorkspace } from './hooks/useWorkspace.ts';
 import { useTheme } from './hooks/useTheme.ts';
+import { forgetTableNames, useTableName } from './hooks/useTableName.ts';
 import { createSchemaRepository } from './services/storage.ts';
 import { isTauriRuntime } from './services/runtime.ts';
 import { alertDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
@@ -32,11 +33,10 @@ export default function App() {
   const version = useAppVersion();
 
   const [schemaModal, setSchemaModal] = useState<'add' | 'edit' | null>(null);
-  const [tableOverride, setTableOverride] = useState<string | undefined>(undefined);
   const [importInput, setImportInput] = useState<HTMLInputElement | null>(null);
 
   const schema = store.activeSchema;
-  const tableName = tableOverride ?? schema?.tableName ?? '';
+  const { tableName, setTableName } = useTableName(schema, aws.profile, aws.region);
 
   const entity =
     schema?.entities.find((e) => e.name === ws.entityName) ?? schema?.entities[0] ?? null;
@@ -55,7 +55,6 @@ export default function App() {
   function handleSelectSchema(id: string) {
     store.setActiveId(id);
     ws.dispatch({ type: 'reset' });
-    setTableOverride(undefined);
   }
 
   async function handleDeleteSchema() {
@@ -65,9 +64,9 @@ export default function App() {
       'Delete schema',
     );
     if (!ok) return;
+    forgetTableNames(schema.id);
     store.deleteSchema();
     ws.dispatch({ type: 'reset' });
-    setTableOverride(undefined);
   }
 
   async function handleImportSchema(file: File) {
@@ -75,7 +74,6 @@ export default function App() {
       const imported = parseSchemaImport(await file.text());
       store.addSchema(imported);
       ws.dispatch({ type: 'reset' });
-      setTableOverride(undefined);
     } catch (err) {
       await alertDialog(err instanceof Error ? err.message : String(err), 'Import error');
     }
@@ -141,7 +139,7 @@ export default function App() {
       onExportSchema={handleExportSchema}
       onDeleteSchema={handleDeleteSchema}
       tableName={tableName}
-      onTableNameChange={setTableOverride}
+      onTableNameChange={setTableName}
       aws={aws}
       />
 

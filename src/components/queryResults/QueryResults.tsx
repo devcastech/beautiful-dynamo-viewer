@@ -62,7 +62,7 @@ export function QueryResults({ result, keyAttrs, onNext, onPrev }: QueryResultsP
           </span>
           <span className="text-muted">
             {onNext
-              ? 'Filters run after the key read — keep paging with Next to scan further'
+              ? 'Filters run after the key read; keep paging with Next to scan further'
               : 'The keys are valid but nothing lives there'}
             {result.durationMs !== undefined && ` · ${result.durationMs}ms`}
             <CapacityUsage consumedCapacity={result.consumedCapacity} />

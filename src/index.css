@@ -47,8 +47,8 @@
 
 /* ---- Themes (Star Wars). Default = Chewbacca, also applied when no data-theme set. ---- */
 
-/* Chewbacca — warm neutral (stone) steps, amber accent.
-   Lighter end of "dark" deliberately — readability first. */
+/* Chewbacca: warm neutral (stone) steps, amber accent.
+   Lighter end of "dark" deliberately; readability first. */
 :root,
 [data-theme="chewbacca"] {
   --bg-base: #14120f;
@@ -63,7 +63,7 @@
   --text-secondary: #d0c9c4;
   --text-muted: #a39c96;
 
-  /* Amber phosphor — the warm color of the instrument, dialed back from neon */
+  /* Amber phosphor: the warm color of the instrument, dialed back from neon */
   --accent: #dba94f;
   --accent-dim: rgba(219, 169, 79, 0.12);
   --accent-border: rgba(219, 169, 79, 0.32);
@@ -75,7 +75,7 @@
   --scrollbar-thumb-hover: #5c554f;
 }
 
-/* R2-D2 — VS Code Dark+ neutral grays, faithful VS Code blue accent. */
+/* R2-D2: VS Code Dark+ neutral grays, faithful VS Code blue accent. */
 [data-theme="r2d2"] {
   --bg-base: #1e1e1e;
   --bg-surface: #252526;
@@ -100,7 +100,7 @@
   --scrollbar-thumb-hover: #5a5a5a;
 }
 
-/* C-3PO — polished dark bronze with bright protocol gold. */
+/* C-3PO: polished dark bronze with bright protocol gold. */
 [data-theme="c3po"] {
   --bg-base: #161109;
   --bg-surface: #1f1810;
@@ -114,7 +114,7 @@
   --text-secondary: #ddd2bd;
   --text-muted: #a99c82;
 
-  /* Protocol-droid gold — yellower than Chewbacca's amber, softened */
+  /* Protocol-droid gold, yellower than Chewbacca's amber, softened */
   --accent: #e2bd6a;
   --accent-dim: rgba(226, 189, 106, 0.12);
   --accent-border: rgba(226, 189, 106, 0.34);
@@ -126,7 +126,7 @@
   --scrollbar-thumb-hover: #5e4f30;
 }
 
-/* Darth Vader — near-black armor with a red lightsaber accent. */
+/* Darth Vader: near-black armor with a red lightsaber accent. */
 [data-theme="vader"] {
   --bg-base: #0a0a0b;
   --bg-surface: #141416;
@@ -140,7 +140,7 @@
   --text-secondary: #c9c9d0;
   --text-muted: #8a8a93;
 
-  /* Sith lightsaber red — toned down from full saturation */
+  /* Sith lightsaber red, toned down from full saturation */
   --accent: #df5a5a;
   --accent-dim: rgba(223, 90, 90, 0.12);
   --accent-border: rgba(223, 90, 90, 0.34);
@@ -152,7 +152,7 @@
   --scrollbar-thumb-hover: #46464e;
 }
 
-/* Yoda — dim Dagobah dusk (near-neutral, faint green) with a Force-green accent. */
+/* Yoda: dim Dagobah dusk (near-neutral, faint green) with a Force-green accent. */
 [data-theme="yoda"] {
   --bg-base: #0f100e;
   --bg-surface: #161814;
@@ -166,7 +166,7 @@
   --text-secondary: #ccd0c5;
   --text-muted: #969a8e;
 
-  /* The Force — saber green, calmed from luminous */
+  /* The Force: saber green, calmed from luminous */
   --accent: #a6c971;
   --accent-dim: rgba(166, 201, 113, 0.12);
   --accent-border: rgba(166, 201, 113, 0.34);
@@ -209,7 +209,7 @@ td {
   user-select: text;
 }
 
-/* Focus — visible ring for keyboard navigation */
+/* Focus: visible ring for keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

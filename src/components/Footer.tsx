@@ -9,7 +9,7 @@ interface FooterProps {
   updater?: UpdaterState;
 }
 
-/** Bottom status bar — version and update status on the left, theme switcher on the right. */
+/** Bottom status bar: version and update status on the left, theme switcher on the right. */
 export function Footer({ theme, version, updater }: FooterProps) {
   return (
     <footer className="shrink-0 flex items-center justify-between gap-3 h-6.5 px-3 border-t border-line bg-surface">

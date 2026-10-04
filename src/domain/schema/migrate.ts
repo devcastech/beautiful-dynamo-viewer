@@ -8,7 +8,7 @@ function checkVersion(raw: unknown, path: string): Record<string, unknown> {
   if (!isRecord(raw)) throw new Error(`${path} is not an object.`);
   const version = raw.version;
   if (typeof version !== 'number') {
-    throw new Error(`${path} has no numeric "version" field — not a schema export?`);
+    throw new Error(`${path} has no numeric "version" field. Is it a schema export?`);
   }
   if (version !== SCHEMA_VERSION) {
     throw new Error(

@@ -42,7 +42,7 @@ export interface BuildQueryParamsInput {
  * concrete DynamoDB Query request. Picks base-table vs. GSI key attributes from the
  * selected target and composes the sort-key condition for the chosen operator.
  *
- * Pure: no UI, no I/O — the correctness-critical translation lives here so it can be tested.
+ * Pure: no UI, no I/O; the correctness-critical translation lives here so it can be tested.
  */
 export function buildQueryParams(input: BuildQueryParamsInput): QueryParams {
   const { schema, entity, tableName, target, pkValues, skOp, skValues, sk2Values } = input;

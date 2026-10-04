@@ -187,7 +187,7 @@ export function EntityDrawer({
                     <span className="font-mono text-[11px] text-muted">
                       {schema.indexes.find((d) => d.name === pattern.index)!.pkAttr}
                       {' / '}
-                      {schema.indexes.find((d) => d.name === pattern.index)!.skAttr ?? '—'}
+                      {schema.indexes.find((d) => d.name === pattern.index)!.skAttr ?? '-'}
                     </span>
                   ) : (
                     pattern.index.trim() !== '' && (

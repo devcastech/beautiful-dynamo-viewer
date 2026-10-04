@@ -148,13 +148,13 @@ export default function App() {
       {store.loadError && (
         <div className="px-4 py-2 font-mono text-[12px] text-err bg-err-dim border-b border-err/20">
           Could not load the saved workspace: {store.loadError}. Fix or remove workspace.json in the
-          app data folder — saving now would start from scratch.
+          app data folder, saving now would start from scratch.
         </div>
       )}
 
       {store.saveError && (
         <div className="px-4 py-2 font-mono text-[12px] text-err bg-err-dim border-b border-err/20">
-          Changes are not being saved: {store.saveError}. Your edits only live in memory — export
+          Changes are not being saved: {store.saveError}. Your edits only live in memory, export
           the schema as a backup and check the app data folder.
         </div>
       )}

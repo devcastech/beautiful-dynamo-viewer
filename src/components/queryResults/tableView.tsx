@@ -17,7 +17,7 @@ export const TableView = ({ result, keyAttrs }: Props) => {
       await navigator.clipboard.writeText(text);
       setCopied(key);
     } catch {
-      // Clipboard unavailable — ignore.
+      // Clipboard unavailable; ignore.
     }
   }
   const allKeys = Array.from(

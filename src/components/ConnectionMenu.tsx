@@ -73,7 +73,7 @@ export function ConnectionMenu({ aws, tableName, onTableNameChange }: Connection
               value={aws.profile ?? ''}
               onChange={(v) => void aws.selectProfile(v)}
               options={profileOptions}
-              placeholder={profileOptions.length ? '— select —' : 'no profiles found'}
+              placeholder={profileOptions.length ? 'Select a profile' : 'No profiles found'}
               disabled={profileOptions.length === 0}
               className="w-full"
             />

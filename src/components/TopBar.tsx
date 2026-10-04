@@ -65,7 +65,7 @@ export function TopBar({
           value={activeSchema?.id ?? ''}
           onChange={onSelectSchema}
           options={schemas.map((s) => ({ value: s.id, label: s.name }))}
-          placeholder="—"
+          placeholder="No schema"
           disabled={schemas.length === 0}
           className="max-w-44"
         />

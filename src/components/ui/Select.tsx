@@ -26,12 +26,12 @@ interface SelectProps {
 
 const SEARCH_THRESHOLD = 8;
 
-/** Theme-consistent single-select dropdown — replaces the native <select> whose popup can't be styled. */
+/** Theme-consistent single-select dropdown; replaces the native <select> whose popup can't be styled. */
 export function Select({
   value,
   onChange,
   options,
-  placeholder = '—',
+  placeholder = '-',
   disabled = false,
   ariaLabel,
   className = '',

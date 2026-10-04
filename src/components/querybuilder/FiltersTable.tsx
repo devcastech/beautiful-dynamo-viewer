@@ -69,7 +69,7 @@ function isNumeric(s: string): boolean {
 
 /**
  * Rows the query would actually send (enabled, named) must have numeric values
- * when typed as number — the backend sends them as AttributeValue::N, which
+ * when typed as number: the backend sends them as AttributeValue::N, which
  * DynamoDB rejects for non-numeric strings. begins_with/contains always go as
  * strings, so the value type doesn't constrain them.
  */
@@ -129,7 +129,7 @@ export function FiltersTable({
 }
 
 /**
- * Compact inline chip that cycles through its options on click — a no-popup
+ * Compact inline chip that cycles through its options on click: a no-popup
  * stand-in for a <select> in the dense filter table (so nothing can be clipped
  * by the surrounding scroll area). `subtle` dims it for secondary controls.
  */
@@ -153,7 +153,7 @@ function CycleChip<T extends string>({
       type="button"
       onClick={() => onChange(options[(idx + 1) % options.length].value)}
       aria-label={`${ariaLabel}: ${current.label}. Click to change.`}
-      title={`${ariaLabel}: ${current.label} — click to cycle`}
+      title={`${ariaLabel}: ${current.label}, click to cycle`}
       className={`shrink-0 font-mono text-[11px] rounded px-1.5 py-0.75 border cursor-pointer transition-colors ${
         subtle
           ? 'text-muted border-line hover:text-secondary hover:border-line'
@@ -184,7 +184,7 @@ function FilterTableRow({
   const valueCls = invalid ? `${ROW_INPUT_CLS} ${INVALID_INPUT_CLS}` : ROW_INPUT_CLS;
   return (
     <>
-      {/* Enable checkbox — hidden on the ghost row until it has content */}
+      {/* Enable checkbox, hidden on the ghost row until it has content */}
       <div className={`${FILTER_CELL} flex items-center justify-center`}>
         {!isGhost && (
           <button

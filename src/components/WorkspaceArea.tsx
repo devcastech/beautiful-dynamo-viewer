@@ -160,7 +160,7 @@ export function WorkspaceArea({
             </div>
           </div>
 
-          {/* Tab content — both stay mounted so builder inputs survive */}
+          {/* Tab content: both stay mounted so builder inputs survive */}
           <div
             role="tabpanel"
             id="panel-query"

@@ -62,7 +62,7 @@ export function SchemaModal({ mode, initial, onConfirm, onClose }: SchemaModalPr
         </>
       }
     >
-      <Field label="Schema name" required hint="Display label — how this model appears in the selector.">
+      <Field label="Schema name" required hint="Display label, how this model appears in the selector.">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -116,7 +116,7 @@ export function SchemaModal({ mode, initial, onConfirm, onClose }: SchemaModalPr
           <span className="micro-label">Secondary indexes (GSIs)</span>
           {indexes.length === 0 && (
             <span className="text-[12px] text-muted/70 font-ui">
-              None yet — they're added automatically when an entity declares an index pattern.
+              None yet, they're added automatically when an entity declares an index pattern.
             </span>
           )}
           {indexes.map((def, i) => (

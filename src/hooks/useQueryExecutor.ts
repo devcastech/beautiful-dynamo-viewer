@@ -11,7 +11,7 @@ export interface QueryResult {
 }
 
 /** Tauri rejects commands with the serialized AppError struct ({ message }), which is a
- *  plain object — not an Error — so unwrap its message instead of stringifying to "[object Object]". */
+ *  plain object (not an Error), so unwrap its message instead of stringifying to "[object Object]". */
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;

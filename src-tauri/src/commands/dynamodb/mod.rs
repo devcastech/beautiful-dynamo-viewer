@@ -174,7 +174,7 @@ pub fn build_expressions(params: &QueryParams) -> BuiltExpressions {
     // el compilador te obliga a manejarlo aquí. No hay "forgot to handle".
 
     let key_condition: String = match &params.sk_condition {
-        // Sin condición de SK — retorna todos los items bajo esa PK.
+        // Sin condición de SK: retorna todos los items bajo esa PK.
         // Ejemplo: Query PK=ORDER#abc → retorna OrderMeta + OrderItems + Shipments + History
         None => "#pk = :pk".to_string(),
 
@@ -263,7 +263,7 @@ pub async fn query_table(
     params: QueryParams,
 ) -> Result<QueryResult, AppError> {
     // .lock().await obtiene acceso exclusivo al Client.
-    // Devuelve un MutexGuard<Client> — cuando sale del scope se libera el lock.
+    // Devuelve un MutexGuard<Client>; cuando sale del scope se libera el lock.
     // El `client` de aquí en adelante es el Client real, no el Mutex.
     let client = client.lock().await;
 

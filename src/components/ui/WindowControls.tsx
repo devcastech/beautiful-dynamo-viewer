@@ -6,7 +6,7 @@ import { isMacOS, isTauriRuntime } from '../../services/runtime.ts';
 /**
  * Custom minimize/maximize/close buttons for the frameless window.
  *
- * Rendered only on Windows/Linux in the desktop shell — macOS keeps its native
+ * Rendered only on Windows/Linux in the desktop shell; macOS keeps its native
  * traffic lights (see `titleBarStyle: Overlay` in tauri.macos.conf.json), and a
  * plain browser tab has no window to control.
  */

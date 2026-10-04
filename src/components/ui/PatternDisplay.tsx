@@ -15,15 +15,15 @@ export function PatternDisplay({ pattern }: { pattern: string }) {
   );
 }
 
-/** Compact variant for sidebar chips: {var} segments tinted with the group accent. */
-export function PatternChipLabel({ label, accent }: { label: string; accent: string }) {
+/** Compact variant for sidebar rows: {var} segments tinted with the accent, literals muted. */
+export function PatternChipLabel({ label }: { label: string }) {
   const parts = label.split(/(\{[^}]+\})/g);
   return (
     <span>
       {parts.map((part, i) => {
         const isVar = part.startsWith('{') && part.endsWith('}');
         return (
-          <span key={i} style={{ color: isVar ? accent : 'var(--text-muted)' }}>
+          <span key={i} className={isVar ? 'text-accent/80' : 'text-muted'}>
             {part}
           </span>
         );

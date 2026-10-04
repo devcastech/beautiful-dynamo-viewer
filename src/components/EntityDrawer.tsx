@@ -118,7 +118,7 @@ export function EntityDrawer({
             />
           </Field>
           {nameTaken && (
-            <span className="font-mono text-[12px] text-err">
+            <span className="text-[12px] text-err">
               An entity named “{draft.name.trim()}” already exists.
             </span>
           )}
@@ -173,8 +173,8 @@ export function EntityDrawer({
         >
           <div className="flex flex-col gap-2">
             {draft.indexPatterns.map((pattern, i) => (
-              <div key={i} className="border border-line rounded-md overflow-hidden">
-                <div className="flex items-center gap-2 py-2.5 px-2.5 bg-elevated border-b border-line">
+              <div key={i} className="border border-line-dim rounded-md overflow-hidden">
+                <div className="flex items-center gap-2 py-2 px-2.5 bg-elevated/50 border-b border-line-dim">
                   <Input
                     value={pattern.index}
                     onChange={(e) => updatePattern(i, { index: e.target.value })}
@@ -187,7 +187,7 @@ export function EntityDrawer({
                     <span className="font-mono text-[11px] text-muted">
                       {schema.indexes.find((d) => d.name === pattern.index)!.pkAttr}
                       {' / '}
-                      {schema.indexes.find((d) => d.name === pattern.index)!.skAttr ?? '—'}
+                      {schema.indexes.find((d) => d.name === pattern.index)!.skAttr ?? '-'}
                     </span>
                   ) : (
                     pattern.index.trim() !== '' && (
@@ -232,7 +232,7 @@ export function EntityDrawer({
             {draft.attributes.map((attr, i) => (
               <span
                 key={attr}
-                className="flex items-center gap-1 px-2 py-0.75 font-mono text-xs text-secondary bg-elevated border border-line rounded"
+                className="flex items-center gap-1 px-2 py-0.5 font-mono text-xs text-secondary bg-elevated rounded"
               >
                 {attr}
                 <IconButton label={`Remove attribute ${attr}`} onClick={() => removeAttr(i)} className="p-0">
@@ -263,8 +263,8 @@ function DrawerSection({ label, hint, children }: { label: string; hint?: string
   return (
     <div className="px-5 py-4 border-b border-line-dim flex flex-col gap-2.5">
       <div>
-        <div className="micro-label text-[12px]">{label}</div>
-        {hint && <p className="m-0 mt-1 text-[12px] text-muted/70 font-ui leading-relaxed">{hint}</p>}
+        <div className="text-[13px] font-medium text-primary">{label}</div>
+        {hint && <p className="m-0 mt-1 text-[12px] text-muted font-ui leading-relaxed">{hint}</p>}
       </div>
       {children}
     </div>

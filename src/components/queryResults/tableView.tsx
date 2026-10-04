@@ -17,7 +17,7 @@ export const TableView = ({ result, keyAttrs }: Props) => {
       await navigator.clipboard.writeText(text);
       setCopied(key);
     } catch {
-      // Clipboard unavailable — ignore.
+      // Clipboard unavailable; ignore.
     }
   }
   const allKeys = Array.from(
@@ -42,16 +42,16 @@ export const TableView = ({ result, keyAttrs }: Props) => {
   }, [copied]);
 
   return (
-    <div className="overflow-x-auto border border-line rounded-md pb-4">
+    <div className="animate-fade-in">
       <table className="min-w-full border-collapse font-mono text-[12px]">
-        <thead>
-          <tr className="bg-elevated">
-            <th className="w-6 border-b border-line" aria-label="Expand" />
+        <thead className="sticky top-0 z-1 bg-surface">
+          <tr>
+            <th className="w-6 border-b border-line-dim" aria-label="Expand" />
             {columns.map((col) => (
               <th
                 key={col}
-                className={`py-1.5 px-3 text-left font-semibold whitespace-nowrap border-b border-line tracking-[0.05em] ${
-                  keyAttrs.includes(col) ? "text-accent" : "text-muted"
+                className={`py-2 px-3 text-left font-ui text-[11px] font-medium whitespace-nowrap border-b border-line-dim ${
+                  keyAttrs.includes(col) ? "text-secondary" : "text-muted"
                 }`}
               >
                 {col}
@@ -68,11 +68,11 @@ export const TableView = ({ result, keyAttrs }: Props) => {
                   onClick={() => setExpandedRow(isExpanded ? null : i)}
                   aria-expanded={isExpanded}
                   className={`border-b border-line-dim cursor-pointer transition-colors ${
-                    isExpanded ? "bg-elevated" : "hover:bg-elevated"
+                    isExpanded ? "bg-hovered/60" : "hover:bg-hovered/60"
                   }`}
                 >
                   <td
-                    className="pl-2 text-muted/60 select-none"
+                    className="pl-3 text-muted select-none text-[10px]"
                     aria-hidden="true"
                   >
                     {isExpanded ? "▾" : "▸"}
@@ -104,7 +104,7 @@ export const TableView = ({ result, keyAttrs }: Props) => {
                           copied === `${i}:${col}`
                             ? "text-ok"
                             : isKey
-                              ? "text-primary font-medium"
+                              ? "text-primary"
                               : "text-secondary"
                         }`}
                       >
@@ -114,9 +114,9 @@ export const TableView = ({ result, keyAttrs }: Props) => {
                   })}
                 </tr>
                 {isExpanded && (
-                  <tr className="border-b border-line-dim bg-canvas/60">
+                  <tr className="border-b border-line-dim bg-inset">
                     <td colSpan={columns.length + 1} className="p-0">
-                      <div className="relative px-4 py-3 animate-fade-in">
+                      <div className="relative px-9 py-3 animate-fade-in">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -126,10 +126,10 @@ export const TableView = ({ result, keyAttrs }: Props) => {
                               JSON.stringify(row, null, 2),
                             );
                           }}
-                          className="absolute left-30 top-2.5 inline-flex items-center gap-1 font-mono text-[11px] text-muted hover:text-accent bg-elevated border border-line rounded px-2 py-1 cursor-pointer transition-colors"
+                          className="absolute right-4 top-2.5 inline-flex items-center gap-1 text-[11px] text-muted hover:text-primary bg-elevated border-0 rounded px-2 py-1 cursor-pointer transition-colors"
                         >
                           <Copy size={10} aria-hidden="true" />
-                          {copied === `row:${i}` ? "copied ✓" : "copy item"}
+                          {copied === `row:${i}` ? "Copied" : "Copy item"}
                         </button>
                         <pre className="m-0 font-mono text-[12px] text-secondary leading-relaxed overflow-x-auto max-h-75">
                           {JSON.stringify(row, null, 2)}

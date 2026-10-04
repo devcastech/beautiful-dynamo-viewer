@@ -9,7 +9,6 @@ import {
 } from './querybuilder/FiltersTable.tsx';
 import { QueryResults } from './queryResults/QueryResults.tsx';
 import { EmptyState } from './ui/EmptyState.tsx';
-import { Select } from './ui/Select.tsx';
 import { useQueryExecutor } from '../hooks/useQueryExecutor.ts';
 import type { WorkspaceTab } from '../hooks/useWorkspace.ts';
 import type { Entity, SavedQuery, SkOp, TableSchema } from '../domain/schema/types.ts';
@@ -87,13 +86,13 @@ export function WorkspaceArea({
 
   if (!entity) {
     return (
-      <div className="h-full flex items-center justify-center bg-surface border border-line rounded-xl">
+      <div className="h-full flex items-center justify-center bg-canvas">
         <EmptyState
           icon={<MousePointerClick size={28} strokeWidth={1.5} />}
           title="No entity selected"
         >
           Pick an entity from the library on the left to query it, or create one with the{' '}
-          <kbd className="font-mono text-[11px] px-1.5 py-px border border-line rounded">+</kbd>{' '}
+          <kbd className="font-mono text-[11px] px-1.5 py-px bg-elevated rounded">+</kbd>{' '}
           button.
         </EmptyState>
       </div>
@@ -123,18 +122,18 @@ export function WorkspaceArea({
   ];
 
   return (
-    <Group orientation="vertical" className="flex-1 min-h-0 h-full gap-1">
+    <Group orientation="vertical" className="flex-1 min-h-0 h-full">
       {/* ===== Upper panel: tabs + content ===== */}
       <Panel defaultSize={36} minSize={12}>
         <section
           aria-label="Workspace"
-          className="h-full flex flex-col overflow-hidden bg-surface border border-line rounded-xl"
+          className="h-full flex flex-col overflow-hidden bg-canvas"
         >
           {/* Tab bar + context */}
           <div
             role="tablist"
             aria-label="Workspace views"
-            className="flex items-stretch border-b border-line shrink-0 bg-canvas/60"
+            className="flex items-stretch border-b border-line-dim bg-inset shrink-0"
           >
             <TabButton
               id="tab-query"
@@ -152,15 +151,9 @@ export function WorkspaceArea({
               active={tab === 'entity'}
               onClick={() => onTabChange('entity')}
             />
-            <div className="flex-1 flex items-center justify-end px-4 gap-2 min-w-0">
-              <span className="micro-label shrink-0">entity</span>
-              <span className="font-mono text-[12px] text-primary truncate" title={entity.name}>
-                {entity.name}
-              </span>
-            </div>
           </div>
 
-          {/* Tab content — both stay mounted so builder inputs survive */}
+          {/* Tab content: both stay mounted so builder inputs survive */}
           <div
             role="tabpanel"
             id="panel-query"
@@ -204,50 +197,34 @@ export function WorkspaceArea({
             id="panel-entity"
             aria-labelledby="tab-entity"
             hidden={tab !== 'entity'}
-            className={tab === 'entity' ? 'flex-1 overflow-hidden dot-grid' : ''}
+            className={tab === 'entity' ? 'flex-1 overflow-hidden' : ''}
           >
             <EntityInspector schema={schema} entity={entity} onEdit={onEditEntity} />
           </div>
         </section>
       </Panel>
 
-      <Separator className="h-1 my-0 cursor-row-resize hover:bg-accent/40 transition-colors rounded" />
+      <Separator className="relative z-10 h-px bg-line-dim cursor-row-resize hover:bg-accent/60 transition-colors after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']" />
 
       {/* ===== Lower panel: results ===== */}
       <Panel defaultSize={64} minSize={10} collapsible collapsedSize={0}>
         <section
-          aria-labelledby="results-header"
-          className="h-full flex flex-col overflow-hidden bg-surface border border-line rounded-xl"
+          aria-label="Results"
+          className="h-full flex flex-col overflow-hidden bg-canvas"
         >
-          <div className="py-2 px-4 border-b border-line bg-canvas/60 shrink-0 flex items-center gap-2">
-            <span id="results-header" className="micro-label text-[12px]">
-              Results
-            </span>
-            <div className="ml-auto flex items-center gap-1.5">
-              <span className="micro-label">page</span>
-              <Select
-                ariaLabel="Results per page"
-                value={String(pageSize)}
-                onChange={(v) => setPageSize(Number(v))}
-                options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
-                align="right"
-                className="px-1.5 py-0.5"
-              />
-            </div>
-            <span aria-live="polite" className="sr-only">
-              {executor.result.status === 'loading' && 'Query running…'}
-              {executor.result.status === 'success' && `Query complete: ${executor.result.data.length} items`}
-              {executor.result.status === 'error' && `Query failed: ${executor.result.error ?? ''}`}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto py-3 px-4">
-            <QueryResults
-              result={executor.result}
-              keyAttrs={keyAttrs}
-              onNext={executor.hasNext ? executor.next : undefined}
-              onPrev={executor.hasPrev ? executor.prev : undefined}
-            />
-          </div>
+          <span aria-live="polite" className="sr-only">
+            {executor.result.status === 'loading' && 'Query running…'}
+            {executor.result.status === 'success' && `Query complete: ${executor.result.data.length} items`}
+            {executor.result.status === 'error' && `Query failed: ${executor.result.error ?? ''}`}
+          </span>
+          <QueryResults
+            result={executor.result}
+            keyAttrs={keyAttrs}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            onNext={executor.hasNext ? executor.next : undefined}
+            onPrev={executor.hasPrev ? executor.prev : undefined}
+          />
         </section>
       </Panel>
     </Group>
@@ -280,10 +257,10 @@ function TabButton({
       aria-controls={controls}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={`flex items-center gap-1.5 py-2.5 px-4 font-mono text-xs border-0 border-b-2 bg-transparent cursor-pointer transition-colors -mb-px ${
+      className={`flex items-center gap-1.5 py-2 px-3.5 text-[12px] border-x border-t-0 border-b first:border-l-0 cursor-pointer transition-colors -mb-px ${
         active
-          ? 'font-semibold border-b-accent text-accent'
-          : 'font-normal border-b-transparent text-muted hover:text-secondary'
+          ? 'font-medium bg-surface border-x-line-dim border-b-surface text-primary'
+          : 'bg-transparent border-transparent text-muted hover:text-secondary'
       }`}
     >
       {icon}

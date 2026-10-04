@@ -34,7 +34,7 @@ export function useSchemaStore(repo: SchemaRepository) {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        // Don't seed over a corrupt file — surface the error and start empty
+        // Don't seed over a corrupt file; surface the error and start empty
         // so the user's workspace.json stays untouched for manual recovery.
         setLoadError(err instanceof Error ? err.message : String(err));
         setSchemas([]);

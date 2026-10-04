@@ -14,7 +14,7 @@ fn workspace_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, AppError
 }
 
 /// Contenido de workspace.json en el app-data dir, o None si todavía no existe
-/// (primer arranque — el frontend siembra los schemas de ejemplo).
+/// (primer arranque: el frontend siembra los schemas de ejemplo).
 #[tauri::command]
 pub async fn load_workspace(app: tauri::AppHandle) -> Result<Option<String>, AppError> {
     let path = workspace_path(&app)?;

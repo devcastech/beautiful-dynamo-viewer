@@ -42,7 +42,7 @@ function input(over: Partial<BuildQueryParamsInput> = {}): BuildQueryParamsInput
   };
 }
 
-describe('buildQueryParams — base table', () => {
+describe('buildQueryParams: base table', () => {
   it('resolves the pk pattern and uses base key names', () => {
     const p = buildQueryParams(input({ pkValues: { orderId: '42' } }));
     expect(p).toEqual({
@@ -67,7 +67,7 @@ describe('buildQueryParams — base table', () => {
   });
 });
 
-describe('buildQueryParams — GSI target', () => {
+describe('buildQueryParams: GSI target', () => {
   it('uses the index key attributes and sets indexName', () => {
     const p = buildQueryParams(input({ target: 'GSI1', pkValues: { userId: 'u1' } }));
     expect(p.pkName).toBe('GSI1PK');
@@ -84,7 +84,7 @@ describe('buildQueryParams — GSI target', () => {
   });
 });
 
-describe('buildQueryParams — sort key conditions', () => {
+describe('buildQueryParams: sort key conditions', () => {
   it('builds an Eq condition from resolved sk values', () => {
     const p = buildQueryParams(
       input({ target: 'GSI1', skOp: 'Eq', skValues: { date: '2026-01', orderId: '9' } }),
@@ -120,7 +120,7 @@ describe('buildQueryParams — sort key conditions', () => {
   });
 });
 
-describe('buildQueryParams — filters', () => {
+describe('buildQueryParams: filters', () => {
   it('omits filters when none are given', () => {
     expect(buildQueryParams(input()).filters).toBeUndefined();
   });

@@ -31,15 +31,17 @@ export function ConnectionMenu({ aws, tableName, onTableNameChange }: Connection
         aria-expanded={open}
         aria-label="AWS connection"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line-dim bg-canvas/60 hover:border-line cursor-pointer transition-colors"
+        className={`flex items-center gap-2 px-2.5 py-1 rounded-md border-0 cursor-pointer transition-colors ${
+          open ? 'bg-hovered' : 'bg-transparent hover:bg-hovered'
+        }`}
       >
-        <span className={`font-mono text-[12px] truncate max-w-50 ${status.className}`}>
+        <span className={`text-[12px] truncate max-w-50 ${status.className}`}>
           {status.text}
         </span>
         <ChevronDown
           size={13}
           aria-hidden="true"
-          className={`shrink-0 text-muted opacity-70 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 text-muted transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -47,7 +49,7 @@ export function ConnectionMenu({ aws, tableName, onTableNameChange }: Connection
         <div
           role="dialog"
           aria-label="AWS connection settings"
-          className="absolute right-0 top-full mt-1 z-30 w-72 bg-elevated border border-line rounded-lg shadow-xl p-3 flex flex-col gap-3 animate-fade-in"
+          className="absolute right-0 top-full mt-1 z-30 w-72 bg-elevated border border-line-dim rounded-lg shadow-xl p-3 flex flex-col gap-3 animate-fade-in"
         >
           <Row label="Table">
             <Input
@@ -73,7 +75,7 @@ export function ConnectionMenu({ aws, tableName, onTableNameChange }: Connection
               value={aws.profile ?? ''}
               onChange={(v) => void aws.selectProfile(v)}
               options={profileOptions}
-              placeholder={profileOptions.length ? '— select —' : 'no profiles found'}
+              placeholder={profileOptions.length ? 'Select a profile' : 'No profiles found'}
               disabled={profileOptions.length === 0}
               className="w-full"
             />
@@ -92,40 +94,40 @@ export function ConnectionMenu({ aws, tableName, onTableNameChange }: Connection
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="micro-label">{label}</span>
+      <span className="field-label">{label}</span>
       {children}
     </label>
   );
 }
 
-/** Chip label + color encoding connection state without a status dot. */
+/** Chip label + text color encoding the connection state. */
 function chipStatus(aws: AwsConnection): { text: string; className: string } {
-  if (aws.status === 'checking') return { text: 'checking…', className: 'text-muted' };
-  if (!aws.profile) return { text: 'offline', className: 'text-muted' };
+  if (aws.status === 'checking') return { text: 'Checking…', className: 'text-muted' };
+  if (!aws.profile) return { text: 'Offline', className: 'text-muted' };
   if (aws.status === 'authed') {
     return { text: `${aws.profile} · ${aws.region}`, className: 'text-secondary' };
   }
   // Has a profile but not authenticated → needs action.
-  return { text: `${aws.profile} · sign in`, className: 'text-accent' };
+  return { text: `${aws.profile} · Sign in`, className: 'text-accent' };
 }
 
 function StatusRow({ aws }: { aws: AwsConnection }) {
   if (aws.status === 'checking') {
     return (
-      <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted" aria-live="polite">
+      <span className="flex items-center gap-1.5 text-[12px] text-muted" aria-live="polite">
         <LoaderCircle width={11} height={11} className="animate-spin" aria-hidden="true" />
-        checking…
+        Checking…
       </span>
     );
   }
   if (!aws.profile) {
     return (
-      <span className="font-mono text-[11px] text-muted/60">Select a profile to connect.</span>
+      <span className="text-[12px] text-muted">Select a profile to connect.</span>
     );
   }
   if (aws.status === 'authed') {
     return (
-      <span className="font-mono text-[11px] text-ok" aria-live="polite">connected</span>
+      <span className="text-[12px] text-ok" aria-live="polite">Connected</span>
     );
   }
   return (
@@ -133,10 +135,10 @@ function StatusRow({ aws }: { aws: AwsConnection }) {
       type="button"
       onClick={() => void aws.ssoLogin()}
       aria-label={`Sign in to AWS profile ${aws.profile}`}
-      className="flex items-center gap-1 font-mono text-[11px] text-accent hover:bg-accent-dim bg-transparent border border-accent-line rounded-md px-2 py-0.75 cursor-pointer transition-colors"
+      className="flex items-center gap-1.5 text-[12px] text-accent hover:bg-accent-dim bg-transparent border border-accent-line rounded-md px-2 py-0.75 cursor-pointer transition-colors"
     >
       <CircleAlert width={11} height={11} aria-hidden="true" />
-      sign in
+      Sign in
     </button>
   );
 }

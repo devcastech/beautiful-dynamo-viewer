@@ -13,6 +13,7 @@ import { useSchemaStore } from './hooks/useSchemaStore.ts';
 import { useAwsConnection } from './hooks/useAwsConnection.ts';
 import { useWorkspace } from './hooks/useWorkspace.ts';
 import { useTheme } from './hooks/useTheme.ts';
+import { forgetTableNames, useTableName } from './hooks/useTableName.ts';
 import { createSchemaRepository } from './services/storage.ts';
 import { isTauriRuntime } from './services/runtime.ts';
 import { alertDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
@@ -32,11 +33,10 @@ export default function App() {
   const version = useAppVersion();
 
   const [schemaModal, setSchemaModal] = useState<'add' | 'edit' | null>(null);
-  const [tableOverride, setTableOverride] = useState<string | undefined>(undefined);
   const [importInput, setImportInput] = useState<HTMLInputElement | null>(null);
 
   const schema = store.activeSchema;
-  const tableName = tableOverride ?? schema?.tableName ?? '';
+  const { tableName, setTableName } = useTableName(schema, aws.profile, aws.region);
 
   const entity =
     schema?.entities.find((e) => e.name === ws.entityName) ?? schema?.entities[0] ?? null;
@@ -55,7 +55,6 @@ export default function App() {
   function handleSelectSchema(id: string) {
     store.setActiveId(id);
     ws.dispatch({ type: 'reset' });
-    setTableOverride(undefined);
   }
 
   async function handleDeleteSchema() {
@@ -65,9 +64,9 @@ export default function App() {
       'Delete schema',
     );
     if (!ok) return;
+    forgetTableNames(schema.id);
     store.deleteSchema();
     ws.dispatch({ type: 'reset' });
-    setTableOverride(undefined);
   }
 
   async function handleImportSchema(file: File) {
@@ -75,7 +74,6 @@ export default function App() {
       const imported = parseSchemaImport(await file.text());
       store.addSchema(imported);
       ws.dispatch({ type: 'reset' });
-      setTableOverride(undefined);
     } catch (err) {
       await alertDialog(err instanceof Error ? err.message : String(err), 'Import error');
     }
@@ -141,27 +139,27 @@ export default function App() {
       onExportSchema={handleExportSchema}
       onDeleteSchema={handleDeleteSchema}
       tableName={tableName}
-      onTableNameChange={setTableOverride}
+      onTableNameChange={setTableName}
       aws={aws}
       />
 
       {store.loadError && (
-        <div className="px-4 py-2 font-mono text-[12px] text-err bg-err-dim border-b border-err/20">
+        <div className="px-4 py-2 text-[12px] text-err bg-err-dim border-b border-err/20">
           Could not load the saved workspace: {store.loadError}. Fix or remove workspace.json in the
-          app data folder — saving now would start from scratch.
+          app data folder, saving now would start from scratch.
         </div>
       )}
 
       {store.saveError && (
-        <div className="px-4 py-2 font-mono text-[12px] text-err bg-err-dim border-b border-err/20">
-          Changes are not being saved: {store.saveError}. Your edits only live in memory — export
+        <div className="px-4 py-2 text-[12px] text-err bg-err-dim border-b border-err/20">
+          Changes are not being saved: {store.saveError}. Your edits only live in memory, export
           the schema as a backup and check the app data folder.
         </div>
       )}
 
       {!schema ? (
-        <main className="flex-1 flex items-center justify-center dot-grid">
-          <div className="bg-surface border border-line rounded-xl px-4 py-6 w-105">
+        <main className="flex-1 flex items-center justify-center bg-canvas">
+          <div className="w-105">
             <EmptyState
               icon={<DatabaseZap size={32} strokeWidth={1.5} />}
               title="No schemas yet"
@@ -196,7 +194,7 @@ export default function App() {
         </main>
       ) : (
         <main aria-label="Workspace" className="flex flex-1 min-h-0 overflow-hidden">
-          <Group className="flex-1 min-h-0 gap-1 p-2">
+          <Group className="flex-1 min-h-0">
             <Panel defaultSize={20} minSize={14}>
               <Sidebar
               schema={schema}
@@ -217,7 +215,7 @@ export default function App() {
               }}
               />
             </Panel>
-            <Separator className="w-1 cursor-col-resize hover:bg-accent/40 transition-colors rounded" />
+            <Separator className="relative z-10 w-px bg-line-dim cursor-col-resize hover:bg-accent/60 transition-colors after:absolute after:inset-y-0 after:-inset-x-1 after:content-['']" />
             <Panel defaultSize={80} minSize={40}>
               <WorkspaceArea
               schema={schema}

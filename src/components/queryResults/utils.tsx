@@ -1,5 +1,6 @@
 import { ConsumedCapacity } from "../../services/dynamo";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IconButton } from "../ui/Button";
 
 export const CapacityUsage = ({
   consumedCapacity,
@@ -27,16 +28,15 @@ export const CapacityUsage = ({
 
   return (
     <span
-      className="text-muted ml-1.5"
       title={breakdown}
       aria-label={breakdown}
     >
-      · {units} RCU
+      {units} RCU
     </span>
   );
 };
 
-/** Compact Prev/Next pager, styled like the Table/JSON toggle group. */
+/** Icon-only Prev/Next pager. */
 export const Pager = ({
   onPrev,
   onNext,
@@ -46,74 +46,13 @@ export const Pager = ({
 }) => {
   if (!onPrev && !onNext) return null;
   return (
-    <div className="flex border border-line rounded overflow-hidden">
-      <PagerBtn onClick={onPrev} disabled={!onPrev} label="Previous page">
-        <ChevronLeft size={13} aria-hidden="true" />
-        Prev
-      </PagerBtn>
-      <PagerBtn
-        onClick={onNext}
-        disabled={!onNext}
-        label="Next page"
-        borderLeft
-      >
-        Next
-        <ChevronRight size={13} aria-hidden="true" />
-      </PagerBtn>
+    <div className="flex items-center">
+      <IconButton label="Previous page" onClick={onPrev} disabled={!onPrev}>
+        <ChevronLeft size={14} aria-hidden="true" />
+      </IconButton>
+      <IconButton label="Next page" onClick={onNext} disabled={!onNext}>
+        <ChevronRight size={14} aria-hidden="true" />
+      </IconButton>
     </div>
-  );
-};
-
-function PagerBtn({
-  onClick,
-  disabled,
-  label,
-  borderLeft = false,
-  children,
-}: {
-  onClick?: () => void;
-  disabled: boolean;
-  label: string;
-  borderLeft?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={`flex items-center gap-1 py-0.75 px-2 font-mono text-xs bg-transparent text-muted cursor-pointer transition-colors hover:text-secondary hover:bg-elevated disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
-        borderLeft ? "border-0 border-l border-line" : "border-0"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-export const ViewBtn = ({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`py-0.75 px-2.25 font-mono text-xs border-0 cursor-pointer transition-all ${
-        active
-          ? "bg-accent text-canvas"
-          : "bg-transparent text-muted hover:text-secondary"
-      }`}
-    >
-      {children}
-    </button>
   );
 };

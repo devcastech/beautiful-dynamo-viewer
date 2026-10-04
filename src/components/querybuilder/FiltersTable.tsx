@@ -1,4 +1,5 @@
-import { Check, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import { IconButton } from '../ui/Button.tsx';
 import type { FilterOp, FilterValueType, QueryFilter } from '../../domain/schema/types.ts';
 
@@ -69,7 +70,7 @@ function isNumeric(s: string): boolean {
 
 /**
  * Rows the query would actually send (enabled, named) must have numeric values
- * when typed as number — the backend sends them as AttributeValue::N, which
+ * when typed as number: the backend sends them as AttributeValue::N, which
  * DynamoDB rejects for non-numeric strings. begins_with/contains always go as
  * strings, so the value type doesn't constrain them.
  */
@@ -84,15 +85,16 @@ export function isFilterRowValid(row: FilterRow): boolean {
 // Shared column template so the header and every row stay aligned:
 // enable · Name · Value · delete.
 const FILTER_GRID = 'grid grid-cols-[2.25rem_minmax(120px,1fr)_minmax(220px,1.7fr)_2.25rem]';
-const FILTER_CELL = 'border-b border-r border-line min-h-10';
+const FILTER_CELL = 'border-b border-line-dim min-h-9';
 
 const ROW_INPUT_CLS =
-  'w-full bg-transparent border-0 outline-none font-mono text-xs text-primary placeholder:text-muted/40 min-h-8';
+  'w-full bg-transparent border-0 outline-none font-mono text-xs text-primary placeholder:text-muted min-h-8';
 const INVALID_INPUT_CLS = 'text-err placeholder:text-err/40';
 
 /**
  * Postman-style key/value table. Renders the real filters plus one trailing
- * ghost row; typing into the ghost row materialises a new filter.
+ * ghost row; typing into the ghost row materialises a new filter. With no
+ * filters it collapses to a single "Add filter" button.
  */
 export function FiltersTable({
   filters,
@@ -105,20 +107,31 @@ export function FiltersTable({
   onToggleRow: (i: number) => void;
   onRemoveRow: (i: number) => void;
 }) {
+  const [opened, setOpened] = useState(false);
+
+  if (filters.length === 0 && !opened) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpened(true)}
+        className="self-start inline-flex items-center gap-1.5 text-[12px] text-muted hover:text-primary bg-transparent border border-dashed border-line-dim hover:border-line rounded-md px-2.5 py-1 cursor-pointer transition-colors"
+      >
+        <Plus size={12} aria-hidden="true" />
+        Add filter
+      </button>
+    );
+  }
+
   const rows = [...filters, emptyFilter()];
-  const headerCls = `${FILTER_CELL} flex items-center px-3 py-1.5 text-[11px] font-semibold tracking-wide text-accent bg-elevated/40`;
   return (
-    <div className={`${FILTER_GRID} border border-line rounded-md bg-canvas`}>
-      <div className={`${FILTER_CELL} bg-elevated/40`} aria-hidden="true" />
-      <div className={headerCls}>Name</div>
-      <div className={headerCls}>Value</div>
-      <div className={`${FILTER_CELL} bg-elevated/40`} aria-hidden="true" />
+    <div className={`${FILTER_GRID} border border-line-dim rounded-md bg-inset overflow-hidden [&>*:nth-last-child(-n+4)]:border-b-0`}>
 
       {rows.map((row, i) => (
         <FilterTableRow
           key={i}
           filter={row}
           isGhost={i === filters.length}
+          autoFocus={opened && filters.length === 0 && i === 0}
           onChange={(patch) => onChangeRow(i, patch)}
           onToggle={() => onToggleRow(i)}
           onRemove={() => onRemoveRow(i)}
@@ -129,7 +142,7 @@ export function FiltersTable({
 }
 
 /**
- * Compact inline chip that cycles through its options on click — a no-popup
+ * Compact inline chip that cycles through its options on click: a no-popup
  * stand-in for a <select> in the dense filter table (so nothing can be clipped
  * by the surrounding scroll area). `subtle` dims it for secondary controls.
  */
@@ -153,11 +166,11 @@ function CycleChip<T extends string>({
       type="button"
       onClick={() => onChange(options[(idx + 1) % options.length].value)}
       aria-label={`${ariaLabel}: ${current.label}. Click to change.`}
-      title={`${ariaLabel}: ${current.label} — click to cycle`}
-      className={`shrink-0 font-mono text-[11px] rounded px-1.5 py-0.75 border cursor-pointer transition-colors ${
+      title={`${ariaLabel}: ${current.label}, click to cycle`}
+      className={`shrink-0 font-mono text-[11px] rounded px-1.5 py-0.5 border-0 cursor-pointer transition-colors ${
         subtle
-          ? 'text-muted border-line hover:text-secondary hover:border-line'
-          : 'text-accent bg-accent-dim border-accent-line hover:border-accent'
+          ? 'text-muted bg-transparent hover:text-secondary hover:bg-hovered'
+          : 'text-secondary bg-elevated hover:text-primary'
       }`}
     >
       {current.label}
@@ -169,12 +182,14 @@ function CycleChip<T extends string>({
 function FilterTableRow({
   filter,
   isGhost,
+  autoFocus,
   onChange,
   onToggle,
   onRemove,
 }: {
   filter: FilterRow;
   isGhost: boolean;
+  autoFocus?: boolean;
   onChange: (patch: Partial<FilterRow>) => void;
   onToggle: () => void;
   onRemove: () => void;
@@ -184,7 +199,7 @@ function FilterTableRow({
   const valueCls = invalid ? `${ROW_INPUT_CLS} ${INVALID_INPUT_CLS}` : ROW_INPUT_CLS;
   return (
     <>
-      {/* Enable checkbox — hidden on the ghost row until it has content */}
+      {/* Enable checkbox, hidden on the ghost row until it has content */}
       <div className={`${FILTER_CELL} flex items-center justify-center`}>
         {!isGhost && (
           <button
@@ -205,12 +220,13 @@ function FilterTableRow({
       </div>
 
       {/* Name (attribute) */}
-      <div className={`${FILTER_CELL} flex items-center p-0 ${dim}`}>
+      <div className={`${FILTER_CELL} flex items-center px-1 ${dim}`}>
         <input
           aria-label="Filter attribute"
           value={filter.name}
           onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="Name"
+          placeholder={isGhost ? 'Add attribute…' : 'Attribute'}
+          autoFocus={autoFocus}
           spellCheck={false}
           className={ROW_INPUT_CLS}
         />

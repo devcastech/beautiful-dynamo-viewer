@@ -27,7 +27,7 @@ function fakeRepo(over: Partial<SchemaRepository> = {}): SchemaRepository {
   };
 }
 
-/** Minimal in-memory Storage — happy-dom's localStorage is incomplete in this env. */
+/** Minimal in-memory Storage, since happy-dom's localStorage is incomplete in this env. */
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
   return {

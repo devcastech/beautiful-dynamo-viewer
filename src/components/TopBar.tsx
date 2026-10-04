@@ -44,30 +44,29 @@ export function TopBar({
   return (
     <header
       data-tauri-drag-region
-      className={`flex items-center gap-3 h-12 shrink-0 border-b border-line-dim bg-surface/60 pr-2 ${
+      className={`flex items-center gap-3 h-11 shrink-0 border-b border-line-dim bg-surface pr-2 ${
         isMacOS() ? 'pl-21' : 'pl-4'
       }`}
     >
       <div data-tauri-drag-region className="flex items-center gap-2 shrink-0">
-        <img src="/logo.png" className="w-5 h-5 object-contain opacity-70" alt="" />
-        <span className="font-mono font-semibold text-[13px] text-primary tracking-[0.02em]">
+        <img src="/logo.png" className="w-4.5 h-4.5 object-contain opacity-70" alt="" />
+        <span className="font-semibold text-[13px] text-primary">
           dynamo<span className="text-accent">.</span>viewer
         </span>
       </div>
 
-      <Divider />
-
       {/* Schema region */}
-      <div className="flex gap-1.5 items-center min-w-0" role="group" aria-label="Schema">
-        <span className="micro-label shrink-0">schema</span>
+      <div className="flex gap-0.5 items-center min-w-0" role="group" aria-label="Schema">
+        <span aria-hidden="true" className="text-muted mr-1">/</span>
         <Select
           ariaLabel="Active schema"
           value={activeSchema?.id ?? ''}
           onChange={onSelectSchema}
           options={schemas.map((s) => ({ value: s.id, label: s.name }))}
-          placeholder="—"
+          placeholder="No schema"
           disabled={schemas.length === 0}
-          className="max-w-44"
+          variant="ghost"
+          className="max-w-52 font-medium"
         />
         <IconButton label="New schema" onClick={onNewSchema} className="p-1.5">
           <Plus size={14} aria-hidden="true" />
@@ -107,8 +106,4 @@ export function TopBar({
       <WindowControls />
     </header>
   );
-}
-
-function Divider() {
-  return <div className="w-px h-5 bg-line-dim shrink-0" aria-hidden="true" />;
 }

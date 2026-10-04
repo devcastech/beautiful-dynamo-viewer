@@ -31,10 +31,10 @@ export function Modal({ title, onClose, footer, children, width = 440 }: ModalPr
         aria-modal="true"
         aria-label={title}
         style={{ width }}
-        className="bg-surface border border-line rounded-xl shadow-2xl flex flex-col overflow-hidden animate-fade-in"
+        className="bg-surface border border-line-dim rounded-xl shadow-2xl flex flex-col overflow-hidden animate-fade-in"
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-line bg-elevated">
-          <span className="micro-label text-[12px]">{title}</span>
+        <div className="flex items-center justify-between px-5 pt-4 pb-1">
+          <span className="text-[14px] font-semibold text-primary">{title}</span>
           <IconButton label="Close" onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </IconButton>
@@ -43,7 +43,7 @@ export function Modal({ title, onClose, footer, children, width = 440 }: ModalPr
         <div className="px-5 py-4 flex flex-col gap-3">{children}</div>
 
         {footer && (
-          <div className="flex justify-end gap-2 px-5 py-3 border-t border-line bg-elevated">
+          <div className="flex justify-end gap-2 px-5 py-3 border-t border-line-dim">
             {footer}
           </div>
         )}

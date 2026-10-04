@@ -6,6 +6,7 @@ import { buildQueryParams, type QueryParams } from '../../domain/schema/buildQue
 import { Input } from '../ui/Input.tsx';
 import { Select } from '../ui/Select.tsx';
 import { IconButton } from '../ui/Button.tsx';
+import { Segmented } from '../ui/Segmented.tsx';
 import {
   FiltersTable,
   emptyFilter,
@@ -42,8 +43,6 @@ interface QueryBuilderProps {
   isLoading?: boolean;
 }
 
-
-/** Short labels for the composed-key preview in the query bar. */
 
 export function QueryBuilder({
   schema,
@@ -135,8 +134,8 @@ export function QueryBuilder({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* ===== Query bar (pinned): target · composed key · run ===== */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-canvas/60">
+      {/* ===== Query bar (pinned): target, save, run ===== */}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-surface border-b border-line-dim">
         <Select
           ariaLabel="Query target"
           value={selectedTarget}
@@ -148,19 +147,10 @@ export function QueryBuilder({
               label: pattern.index,
             })),
           ]}
-          className="shrink-0 font-semibold text-accent bg-accent-dim border-accent-line"
+          className="shrink-0 font-medium"
         />
 
-        <div className="flex-1 min-w-0 overflow-x-auto bg-canvas border border-line rounded-md px-2.5 py-1.5">
-          <KeyPreview
-            pkSegments={parsedPk.segments}
-            pkValues={pkValues}
-            skOp={skOp}
-            skSegments={parsedSk.segments}
-            skValues={skValues}
-            sk2Values={sk2Values}
-          />
-        </div>
+        <div className="flex-1" />
 
         {saveName === null ? (
           <div className="shrink-0 flex items-center gap-0.5">
@@ -213,23 +203,23 @@ export function QueryBuilder({
           disabled={!canSubmit}
           onClick={handleSubmit}
           title={executeDisabledReason}
-          className={`shrink-0 inline-flex items-center gap-1.5 py-1.75 px-4 font-mono text-xs font-semibold tracking-[0.05em] rounded-md border transition-all ${
+          className={`shrink-0 inline-flex items-center gap-1.5 py-1.25 pl-3 pr-2 text-[12px] font-semibold rounded-md border-0 transition-colors ${
             canSubmit
-              ? 'bg-accent border-accent text-canvas cursor-pointer hover:shadow-[0_0_18px_var(--accent-glow)]'
-              : 'bg-transparent border-line text-muted opacity-50 cursor-not-allowed'
+              ? 'bg-accent text-canvas cursor-pointer hover:brightness-110'
+              : 'bg-elevated text-muted cursor-not-allowed'
           }`}
         >
-          <Play size={11} aria-hidden="true" />
-          Execute
-          <kbd className="font-mono text-[10px] font-normal opacity-70 border border-current/30 rounded px-1 ml-1">
+          <Play size={11} aria-hidden="true" fill="currentColor" />
+          Run
+          <kbd className="font-mono text-[10px] font-normal opacity-75 ml-1">
             {isMacOS() ? '⌘' : 'Ctrl'}↵
           </kbd>
         </button>
       </div>
 
-      {/* ===== Builder fields (scroll): the params that compose the bar ===== */}
-      <div className="flex-1 overflow-y-auto dot-grid px-5 py-4">
-        <div className="flex flex-col gap-4">
+      {/* ===== Builder fields (scroll): the params that compose the key ===== */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
+        <div className="flex flex-col gap-4 max-w-4xl">
           {/* Partition key */}
           <PatternRow
             label="Partition key"
@@ -241,26 +231,18 @@ export function QueryBuilder({
 
           {/* Sort key */}
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-baseline gap-2">
-              <span className="micro-label text-[12px]">Sort key</span>
-              <span className="font-mono text-[11px] text-muted/60">{resolved.skAttr}</span>
-            </div>
-            <div className="flex gap-1 flex-wrap">
-              {SK_OPS.map(({ op, label }) => (
-                <button
-                  key={op}
-                  type="button"
-                  onClick={() => onChangeSkOp(op)}
-                  aria-pressed={skOp === op}
-                  className={`py-0.75 px-2.25 font-mono text-[12px] rounded border cursor-pointer transition-all ${
-                    skOp === op
-                      ? 'border-accent bg-accent-dim text-accent'
-                      : 'border-line bg-transparent text-muted hover:text-secondary'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <span className="field-label">Sort key</span>
+              <span className="font-mono text-[11px] text-muted">{resolved.skAttr}</span>
+              <span className="ml-auto">
+                <Segmented
+                  ariaLabel="Sort key condition"
+                  value={skOp}
+                  onChange={onChangeSkOp}
+                  options={SK_OPS.map(({ op, label }) => ({ value: op, label }))}
+                  mono
+                />
+              </span>
             </div>
 
             {skOp !== 'none' && (
@@ -274,7 +256,7 @@ export function QueryBuilder({
 
             {skOp === 'Between' && parsedSk.variables.length > 0 && (
               <>
-                <span className="font-mono text-[11px] text-muted pl-0.5">to</span>
+                <span className="text-[11px] text-muted pl-0.5">and</span>
                 <ValueBox
                   segments={parsedSk.segments}
                   literalFallback={resolved.skPattern}
@@ -288,12 +270,9 @@ export function QueryBuilder({
 
           {/* Filters (FilterExpression on non-key attributes) */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="micro-label text-[12px]">Filters</span>
-              <span className="font-mono text-[11px] text-muted/50">
-                applied after the key query
-              </span>
-            </div>
+            <span className="field-label" title="Applied after the key query (FilterExpression)">
+              Filters
+            </span>
 
             <FiltersTable
               filters={filters}
@@ -303,15 +282,27 @@ export function QueryBuilder({
             />
 
             {!filtersValid && (
-              <span className="font-mono text-[12px] text-err">
+              <span className="text-[12px] text-err">
                 Filters typed as number need numeric values.
               </span>
             )}
           </div>
 
-          {executeDisabledReason && (
-            <span className="font-mono text-[12px] text-muted">{executeDisabledReason}</span>
-          )}
+          <div className="flex flex-col gap-1 pt-1 border-t border-line-dim">
+            <div className="pt-2 overflow-x-auto">
+              <KeyPreview
+                pkSegments={parsedPk.segments}
+                pkValues={pkValues}
+                skOp={skOp}
+                skSegments={parsedSk.segments}
+                skValues={skValues}
+                sk2Values={sk2Values}
+              />
+            </div>
+            {executeDisabledReason && (
+              <span className="text-[12px] text-muted">{executeDisabledReason}</span>
+            )}
+          </div>
         </div>
       </div>
     </div>

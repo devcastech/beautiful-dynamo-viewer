@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 
 const FIELD_CLS =
-  'bg-canvas border border-line rounded-md text-primary font-mono text-xs px-2 py-1.25 outline-none w-full focus:border-accent/50 transition-colors placeholder:text-muted/50';
+  'bg-inset border border-line rounded-md text-primary font-mono text-xs px-2 py-1.25 outline-none w-full focus:border-accent/50 transition-colors placeholder:text-muted';
 
 export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input spellCheck={false} className={`${FIELD_CLS} ${className}`} {...rest} />;
@@ -22,10 +22,10 @@ export function Field({ label, required, hint, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline gap-1">
-        <span className="micro-label">{label}</span>
+        <span className="field-label">{label}</span>
         {required && <span className="text-accent text-[12px]" aria-hidden="true">*</span>}
       </div>
-      {hint && <span className="text-[12px] text-muted/70 font-ui">{hint}</span>}
+      {hint && <span className="text-[12px] text-muted font-ui">{hint}</span>}
       {children}
     </div>
   );

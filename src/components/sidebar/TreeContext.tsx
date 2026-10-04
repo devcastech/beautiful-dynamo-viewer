@@ -5,7 +5,6 @@ interface SidebarTreeContextValue {
   selectedEntityName: string | null;
   activeQueryId: string | null;
   term: string;
-  accents: Record<string, string>;
   collapsedGroups: Record<string, boolean>;
   collapsedEntities: Record<string, boolean>;
   renamingId: string | null;

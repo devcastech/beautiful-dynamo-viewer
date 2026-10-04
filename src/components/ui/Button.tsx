@@ -3,12 +3,9 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 type Variant = 'primary' | 'ghost' | 'danger';
 
 const VARIANTS: Record<Variant, string> = {
-  primary:
-    'bg-accent border-accent text-canvas font-semibold hover:shadow-[0_0_16px_var(--accent-glow)]',
-  ghost:
-    'bg-transparent border-line text-muted hover:text-primary hover:border-line hover:bg-elevated',
-  danger:
-    'bg-transparent border-line text-err/80 hover:text-err hover:border-err/40 hover:bg-err-dim',
+  primary: 'bg-accent border-accent text-canvas font-semibold hover:brightness-110',
+  ghost: 'bg-transparent border-line-dim text-secondary hover:text-primary hover:bg-hovered',
+  danger: 'bg-transparent border-transparent text-err/80 hover:text-err hover:bg-err-dim',
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -20,7 +17,7 @@ export function Button({ variant = 'ghost', icon, children, className = '', ...r
   return (
     <button
       type="button"
-      className={`inline-flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded-md border cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.25 rounded-md border cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}`}
       {...rest}
     >
       {icon && <span aria-hidden="true" className="shrink-0 inline-flex">{icon}</span>}
@@ -43,7 +40,7 @@ export function IconButton({ label, danger = false, children, className = '', ..
       title={label}
       aria-label={label}
       className={`inline-flex items-center justify-center bg-transparent border-0 cursor-pointer p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-        danger ? 'text-muted hover:text-err' : 'text-muted hover:text-accent'
+        danger ? 'text-muted hover:text-err hover:bg-err-dim' : 'text-muted hover:text-primary hover:bg-hovered'
       } ${className}`}
       {...rest}
     >

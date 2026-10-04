@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { Boxes, Plus, Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { IconButton } from "../ui/Button.tsx";
-import { accentByPartitionKey, buildPartitionGroups } from "../../domain/schema/grouping.ts";
+import { buildPartitionGroups } from "../../domain/schema/grouping.ts";
 import type { Entity, SavedQuery, TableSchema } from "../../domain/schema/types.ts";
-import { Dot, EmptyHint, SectionHeader, Stat } from "./utils.tsx";
+import { EmptyHint } from "./utils.tsx";
 import { SidebarTreeProvider } from "./TreeContext.tsx";
 import { TreeEntities, type TreeGroup } from "./TreeEntities.tsx";
 
@@ -37,13 +37,11 @@ export function Sidebar({
   onDeleteQuery,
 }: SidebarProps) {
   const [search, setSearch] = useState("");
-  const [entitiesOpen, setEntitiesOpen] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [collapsedEntities, setCollapsedEntities] = useState<Record<string, boolean>>({});
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const groups = useMemo(() => buildPartitionGroups(schema), [schema]);
-  const accents = useMemo(() => accentByPartitionKey(groups), [groups]);
 
   const queriesByEntity = useMemo(() => {
     const queries: Record<string, SavedQuery[]> = {};
@@ -103,7 +101,6 @@ export function Sidebar({
         selectedEntityName,
         activeQueryId,
         term,
-        accents,
         collapsedGroups,
         collapsedEntities,
         renamingId,
@@ -123,28 +120,21 @@ export function Sidebar({
         onCancelRename: () => setRenamingId(null),
       }}
     >
-      <nav aria-label="Library" className="h-full flex flex-col overflow-hidden bg-surface border border-line rounded-xl">
-        <div className="px-3 pt-3 pb-2 border-b border-line shrink-0 flex flex-col gap-2">
-          <div className="flex items-center gap-2" aria-label="Schema statistics">
-            <Stat value={schema.entities.length} label="entities" />
-            <Dot />
-            <Stat value={schema.indexes.length} label="indexes" />
-            <Dot />
-            <Stat value={schema.queries.length} label="queries" />
-          </div>
-          <div className="relative">
+      <nav aria-label="Library" className="h-full flex flex-col overflow-hidden bg-surface">
+        <div className="px-2.5 pt-2.5 pb-2 shrink-0 flex items-center gap-1">
+          <div className="relative flex-1 min-w-0">
             <Search
               size={12}
               aria-hidden="true"
-              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted/60 pointer-events-none"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
             />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Filter entities & queries…"
+              placeholder="Search"
               aria-label="Filter entities and queries"
               spellCheck={false}
-              className="w-full bg-canvas border border-line-dim rounded-md text-primary font-mono text-[12px] pl-6 pr-6 py-1.25 outline-none focus:border-accent/50 transition-colors placeholder:text-muted/50"
+              className="w-full bg-inset border border-transparent rounded-md text-primary text-[12px] pl-7 pr-6 py-1.25 outline-none focus:border-line transition-colors placeholder:text-muted"
             />
             {search && (
               <IconButton
@@ -156,39 +146,27 @@ export function Sidebar({
               </IconButton>
             )}
           </div>
+          <IconButton label="Add entity" onClick={() => onAddEntity("")} className="p-1.5 shrink-0">
+            <Plus size={14} aria-hidden="true" />
+          </IconButton>
         </div>
 
-        <SectionHeader
-          icon={<Boxes size={13} aria-hidden="true" />}
-          label="Entities"
-          count={schema.entities.length}
-          open={entitiesOpen}
-          onToggle={() => setEntitiesOpen((open) => !open)}
-          action={
-            <IconButton label="Add entity" onClick={() => onAddEntity("")}>
-              <Plus size={13} aria-hidden="true" />
-            </IconButton>
-          }
-        />
-
-        {entitiesOpen && (
-          <div className="overflow-y-auto flex-1 min-h-0">
-            {tree.length === 0 ? (
-              <EmptyHint>
-                {term ? (
-                  "Nothing matches the filter."
-                ) : (
-                  <>
-                    No entities yet.
-                    <span className="block mt-1 text-muted/60">Click + to add one.</span>
-                  </>
-                )}
-              </EmptyHint>
-            ) : (
-              tree.map((group, groupIdx) => <TreeEntities key={group.id} group={group} groupIdx={groupIdx} />)
-            )}
-          </div>
-        )}
+        <div className="overflow-y-auto flex-1 min-h-0 pb-3">
+          {tree.length === 0 ? (
+            <EmptyHint>
+              {term ? (
+                "Nothing matches the filter."
+              ) : (
+                <>
+                  No entities yet.
+                  <span className="block mt-1 text-muted">Click + to add one.</span>
+                </>
+              )}
+            </EmptyHint>
+          ) : (
+            tree.map((group, groupIdx) => <TreeEntities key={group.id} group={group} groupIdx={groupIdx} />)
+          )}
+        </div>
       </nav>
     </SidebarTreeProvider>
   );

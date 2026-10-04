@@ -113,9 +113,9 @@ export function SchemaModal({ mode, initial, onConfirm, onClose }: SchemaModalPr
 
       {mode === 'edit' && (
         <div className="flex flex-col gap-1.5">
-          <span className="micro-label">Secondary indexes (GSIs)</span>
+          <span className="field-label">Secondary indexes (GSIs)</span>
           {indexes.length === 0 && (
-            <span className="text-[12px] text-muted/70 font-ui">
+            <span className="text-[12px] text-muted font-ui">
               None yet, they're added automatically when an entity declares an index pattern.
             </span>
           )}

@@ -22,7 +22,14 @@ interface SelectProps {
   openUp?: boolean;
   /** Force the search field; otherwise it appears automatically when options.length > 8. */
   searchable?: boolean;
+  /** `ghost` drops the box until hover, for selectors that sit inline in a bar. */
+  variant?: 'default' | 'ghost';
 }
+
+const TRIGGER_VARIANTS = {
+  default: 'bg-elevated border-line',
+  ghost: 'bg-transparent border-transparent hover:bg-hovered',
+};
 
 const SEARCH_THRESHOLD = 8;
 
@@ -38,6 +45,7 @@ export function Select({
   align = 'left',
   openUp = false,
   searchable,
+  variant = 'default',
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -139,9 +147,9 @@ export function Select({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={handleKeyDown}
-        className={`flex items-center justify-between gap-1.5 bg-elevated border border-line rounded-md text-primary font-mono text-xs px-2 py-1.25 cursor-pointer outline-none focus:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+        className={`flex items-center justify-between gap-1.5 border rounded-md text-primary text-[12px] px-2 py-1 cursor-pointer outline-none focus:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${TRIGGER_VARIANTS[variant]} ${className}`}
       >
-        <span className={`truncate ${selected ? '' : 'text-muted/60'}`}>
+        <span className={`truncate ${selected ? '' : 'text-muted'}`}>
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown
@@ -163,7 +171,7 @@ export function Select({
                 <Search
                   size={12}
                   aria-hidden="true"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted/60 pointer-events-none"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                 />
                 <input
                   ref={searchRef}
@@ -177,7 +185,7 @@ export function Select({
                   aria-activedescendant={optionId(highlight)}
                   aria-label="Filter options"
                   spellCheck={false}
-                  className="w-full bg-canvas border border-line-dim rounded text-primary font-mono text-[12px] pl-6 pr-2 py-1 outline-none focus:border-accent/50 transition-colors placeholder:text-muted/50"
+                  className="w-full bg-inset border border-line-dim rounded text-primary text-[12px] pl-6 pr-2 py-1 outline-none focus:border-accent/50 transition-colors placeholder:text-muted"
                 />
               </div>
             </div>
@@ -185,7 +193,7 @@ export function Select({
 
           <ul id={listId} role="listbox" aria-label={ariaLabel} className="max-h-70 overflow-y-auto m-0 px-1 list-none">
             {filtered.length === 0 ? (
-              <li className="px-2 py-1.5 font-mono text-[12px] text-muted/60">No matches</li>
+              <li className="px-2 py-1.5 text-[12px] text-muted">No matches</li>
             ) : (
               filtered.map((option, i) => {
                 const isSelected = option.value === value;
@@ -202,11 +210,11 @@ export function Select({
                         e.preventDefault();
                         commit(option);
                       }}
-                      className={`w-full flex items-center gap-2 px-2 py-1.25 rounded text-left font-mono text-xs cursor-pointer border-0 transition-colors ${
+                      className={`w-full flex items-center gap-2 px-2 py-1 rounded text-left text-[12px] cursor-pointer border-0 transition-colors ${
                         isSelected
-                          ? 'bg-accent-dim text-accent'
+                          ? 'bg-hovered text-primary font-medium'
                           : isHighlighted
-                            ? 'bg-hovered text-primary'
+                            ? 'bg-hovered/60 text-primary'
                             : 'bg-transparent text-secondary'
                       }`}
                     >

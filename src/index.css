@@ -6,6 +6,7 @@
   --font-family-ui: var(--font-ui);
 
   /* Background tokens */
+  --color-inset: var(--bg-inset);
   --color-canvas: var(--bg-base);
   --color-surface: var(--bg-surface);
   --color-elevated: var(--bg-elevated);
@@ -51,13 +52,14 @@
    Lighter end of "dark" deliberately; readability first. */
 :root,
 [data-theme="chewbacca"] {
-  --bg-base: #14120f;
-  --bg-surface: #1c1917;
-  --bg-elevated: #292524;
-  --bg-hover: #322d2b;
+  --bg-inset: #181612;
+  --bg-base: #211e19;
+  --bg-surface: #2a2623;
+  --bg-elevated: #383231;
+  --bg-hover: #423c39;
 
-  --border: #44403c;
-  --border-subtle: #33302c;
+  --border: #544f4a;
+  --border-subtle: #48433e;
 
   --text-primary: #f7f5f3;
   --text-secondary: #d0c9c4;
@@ -67,48 +69,44 @@
   --accent: #dba94f;
   --accent-dim: rgba(219, 169, 79, 0.12);
   --accent-border: rgba(219, 169, 79, 0.32);
-  --accent-glow: rgba(219, 169, 79, 0.14);
 
-  --dot-grid-bg: #181513;
-  --dot-grid-dot: #3a3531;
-  --scrollbar-thumb: #4a443f;
-  --scrollbar-thumb-hover: #5c554f;
+  --scrollbar-thumb: #5b534d;
+  --scrollbar-thumb-hover: #6c645d;
 }
 
 /* R2-D2: VS Code Dark+ neutral grays, faithful VS Code blue accent. */
 [data-theme="r2d2"] {
-  --bg-base: #1e1e1e;
-  --bg-surface: #252526;
-  --bg-elevated: #2d2d2d;
-  --bg-hover: #3c3c3c;
+  --bg-inset: #212121;
+  --bg-base: #292929;
+  --bg-surface: #323233;
+  --bg-elevated: #3b3b3b;
+  --bg-hover: #4b4b4b;
 
-  --border: #454545;
-  --border-subtle: #3c3c3c;
+  --border: #545454;
+  --border-subtle: #4f4f4f;
 
   --text-primary: #e6e6e6;
   --text-secondary: #d4d4d4;
-  --text-muted: #858585;
+  --text-muted: #a6a6a6;
 
-  --accent: #6098d6;
-  --accent-dim: rgba(96, 152, 214, 0.14);
-  --accent-border: rgba(96, 152, 214, 0.32);
-  --accent-glow: rgba(96, 152, 214, 0.16);
+  --accent: #7caddd;
+  --accent-dim: rgba(124, 173, 221, 0.14);
+  --accent-border: rgba(124, 173, 221, 0.32);
 
-  --dot-grid-bg: #1a1a1a;
-  --dot-grid-dot: #333333;
-  --scrollbar-thumb: #474747;
-  --scrollbar-thumb-hover: #5a5a5a;
+  --scrollbar-thumb: #565656;
+  --scrollbar-thumb-hover: #696969;
 }
 
 /* C-3PO: polished dark bronze with bright protocol gold. */
 [data-theme="c3po"] {
-  --bg-base: #161109;
-  --bg-surface: #1f1810;
-  --bg-elevated: #2b2316;
-  --bg-hover: #352c1c;
+  --bg-inset: #1b160b;
+  --bg-base: #261e10;
+  --bg-surface: #302519;
+  --bg-elevated: #3e321f;
+  --bg-hover: #493d27;
 
-  --border: #4a3e26;
-  --border-subtle: #352b1b;
+  --border: #5e4f30;
+  --border-subtle: #4e4028;
 
   --text-primary: #f8f2e7;
   --text-secondary: #ddd2bd;
@@ -118,49 +116,45 @@
   --accent: #e2bd6a;
   --accent-dim: rgba(226, 189, 106, 0.12);
   --accent-border: rgba(226, 189, 106, 0.34);
-  --accent-glow: rgba(226, 189, 106, 0.15);
 
-  --dot-grid-bg: #19130a;
-  --dot-grid-dot: #3f3521;
-  --scrollbar-thumb: #4a3e26;
-  --scrollbar-thumb-hover: #5e4f30;
+  --scrollbar-thumb: #5e4f30;
+  --scrollbar-thumb-hover: #72603a;
 }
 
 /* Darth Vader: near-black armor with a red lightsaber accent. */
 [data-theme="vader"] {
-  --bg-base: #0a0a0b;
-  --bg-surface: #141416;
-  --bg-elevated: #1c1c1f;
-  --bg-hover: #262629;
+  --bg-inset: #0e0e0f;
+  --bg-base: #151517;
+  --bg-surface: #202023;
+  --bg-elevated: #29292e;
+  --bg-hover: #353539;
 
-  --border: #34343a;
-  --border-subtle: #232327;
+  --border: #42424a;
+  --border-subtle: #35353b;
 
   --text-primary: #f4f4f6;
   --text-secondary: #c9c9d0;
-  --text-muted: #8a8a93;
+  --text-muted: #939399;
 
   /* Sith lightsaber red, toned down from full saturation */
-  --accent: #df5a5a;
-  --accent-dim: rgba(223, 90, 90, 0.12);
-  --accent-border: rgba(223, 90, 90, 0.34);
-  --accent-glow: rgba(223, 90, 90, 0.18);
+  --accent: #e46e6e;
+  --accent-dim: rgba(228, 110, 110, 0.12);
+  --accent-border: rgba(228, 110, 110, 0.34);
 
-  --dot-grid-bg: #0d0d0f;
-  --dot-grid-dot: #2a2a30;
-  --scrollbar-thumb: #34343a;
-  --scrollbar-thumb-hover: #46464e;
+  --scrollbar-thumb: #42424a;
+  --scrollbar-thumb-hover: #54545e;
 }
 
 /* Yoda: dim Dagobah dusk (near-neutral, faint green) with a Force-green accent. */
 [data-theme="yoda"] {
-  --bg-base: #0f100e;
-  --bg-surface: #161814;
-  --bg-elevated: #1f211c;
-  --bg-hover: #282a24;
+  --bg-inset: #121412;
+  --bg-base: #1a1c19;
+  --bg-surface: #232620;
+  --bg-elevated: #2d3029;
+  --bg-hover: #383a32;
 
-  --border: #3a3d35;
-  --border-subtle: #282a24;
+  --border: #4a4d43;
+  --border-subtle: #3c3f36;
 
   --text-primary: #f1f3ed;
   --text-secondary: #ccd0c5;
@@ -170,12 +164,9 @@
   --accent: #a6c971;
   --accent-dim: rgba(166, 201, 113, 0.12);
   --accent-border: rgba(166, 201, 113, 0.34);
-  --accent-glow: rgba(166, 201, 113, 0.16);
 
-  --dot-grid-bg: #121411;
-  --dot-grid-dot: #2e3129;
-  --scrollbar-thumb: #3a3d35;
-  --scrollbar-thumb-hover: #4c4f45;
+  --scrollbar-thumb: #4a4d43;
+  --scrollbar-thumb-hover: #5c5f53;
 }
 
 * {
@@ -223,6 +214,11 @@ input:focus-visible {
   outline-offset: 1px;
 }
 
+/* Inline slots inside a composite field: the field shows focus, not the slot */
+.slot-input:focus-visible {
+  outline: none;
+}
+
 /* Thin dark scrollbars */
 * {
   scrollbar-width: thin;
@@ -255,20 +251,11 @@ input:focus-visible {
   font-family: var(--font-mono);
 }
 
-/* Blueprint dot grid for working surfaces */
-.dot-grid {
-  background-color: var(--dot-grid-bg);
-  background-image: radial-gradient(circle, var(--dot-grid-dot) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
-
-/* Micro-label: the uppercase mono captions used across the instrument */
-.micro-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+/* Field label: quiet sentence-case caption for form fields and sections */
+.field-label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-muted);
 }
 

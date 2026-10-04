@@ -63,7 +63,7 @@ export function OverflowMenu({ items, ariaLabel = 'More actions' }: OverflowMenu
         <div
           role="menu"
           aria-label={ariaLabel}
-          className="absolute right-0 top-full mt-1 z-20 bg-elevated border border-line rounded-md shadow-xl py-1 min-w-42.5 animate-fade-in"
+          className="absolute right-0 top-full mt-1 z-20 bg-elevated border border-line-dim rounded-md shadow-xl py-1 min-w-42.5 animate-fade-in"
         >
           {items.map((item, i) => (
             <button
@@ -76,7 +76,7 @@ export function OverflowMenu({ items, ariaLabel = 'More actions' }: OverflowMenu
                 item.onClick();
                 setOpen(false);
               }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-mono cursor-pointer bg-transparent border-0 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] cursor-pointer bg-transparent border-0 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 item.danger
                   ? 'text-err/90 hover:bg-err-dim'
                   : 'text-secondary hover:bg-hovered hover:text-primary'

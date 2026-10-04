@@ -12,7 +12,7 @@ interface FooterProps {
 /** Bottom status bar: version and update status on the left, theme switcher on the right. */
 export function Footer({ theme, version, updater }: FooterProps) {
   return (
-    <footer className="shrink-0 flex items-center justify-between gap-3 h-6.5 px-3 border-t border-line bg-surface">
+    <footer className="shrink-0 flex items-center justify-between gap-3 h-6.5 px-3 border-t border-line-dim bg-surface">
       <div className="flex items-center gap-3">
         {version && (
           <span
@@ -60,7 +60,8 @@ export function Footer({ theme, version, updater }: FooterProps) {
           options={theme.themes.map((t) => ({ value: t.id, label: t.label }))}
           align="right"
           openUp
-          className="py-0.5 text-[11px] border-line-dim"
+          variant="ghost"
+          className="py-0 text-[11px] text-muted"
         />
       </div>
     </footer>

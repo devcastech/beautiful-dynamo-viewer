@@ -31,13 +31,13 @@ export function Drawer({ title, subtitle, onClose, footer, children }: DrawerPro
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="h-full w-120 max-w-[92vw] bg-surface border-l border-line shadow-2xl flex flex-col animate-drawer-in"
+        className="h-full w-120 max-w-[92vw] bg-surface border-l border-line-dim shadow-2xl flex flex-col animate-drawer-in"
       >
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-line bg-elevated shrink-0">
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-line-dim shrink-0">
           <div className="flex flex-col min-w-0">
-            <span className="micro-label text-[12px]">{title}</span>
+            <span className="field-label">{title}</span>
             {subtitle && (
-              <span className="font-mono text-[13px] text-primary truncate">{subtitle}</span>
+              <span className="text-[14px] font-semibold text-primary truncate">{subtitle}</span>
             )}
           </div>
           <IconButton label="Close" onClick={onClose} className="ml-auto">
@@ -48,7 +48,7 @@ export function Drawer({ title, subtitle, onClose, footer, children }: DrawerPro
         <div className="flex-1 overflow-y-auto">{children}</div>
 
         {footer && (
-          <div className="flex items-center gap-2 px-5 py-3 border-t border-line bg-elevated shrink-0">
+          <div className="flex items-center gap-2 px-5 py-3 border-t border-line-dim shrink-0">
             {footer}
           </div>
         )}

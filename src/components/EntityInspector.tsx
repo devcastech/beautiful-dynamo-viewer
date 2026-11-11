@@ -48,10 +48,10 @@ export function EntityInspector({ schema, entity, onEdit }: EntityInspectorProps
                     <span className="font-mono text-[11px] font-medium text-muted bg-elevated px-1.5 py-0.5 rounded shrink-0 mt-px">
                       {pattern.index}
                     </span>
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                      <GsiKeyRow prefix="PK →" pattern={pattern.pk} attr={def?.pkAttr ?? `${pattern.index}PK`} />
+                    <div className="flex-1 min-w-10 flex flex-col gap-1">
+                      <GsiKeyRow prefix="PK" pattern={pattern.pk} attr={def?.pkAttr ?? `${pattern.index}PK`} />
                       {pattern.sk && (
-                        <GsiKeyRow prefix="SK →" pattern={pattern.sk} attr={def?.skAttr ?? 'SK'} />
+                        <GsiKeyRow prefix="SK" pattern={pattern.sk} attr={def?.skAttr ?? 'SK'} />
                       )}
                     </div>
                   </div>

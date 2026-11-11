@@ -12,12 +12,6 @@ const VALUE_INPUT_CLS =
 /** Exact width for a monospace slot: characters plus the slot's horizontal padding. */
 const slotWidth = (text: string) => `calc(${Math.max(text.length, 1) + 1}ch + 0.5rem)`;
 
-const SK_OP_LABEL: Record<Exclude<SkOp, 'none'>, string> = {
-  Eq: '=',
-  BeginsWith: 'begins_with',
-  Between: 'between',
-};
-
 type Segments = ReturnType<typeof parsePattern>['segments'];
 
 export const SK_OPS: { op: SkOp; label: string }[] = [
@@ -26,70 +20,6 @@ export const SK_OPS: { op: SkOp; label: string }[] = [
   { op: 'BeginsWith', label: 'begins_with' },
   { op: 'Between', label: 'between' },
 ];
-/** Read-only render of the key the query will send: filled values burn amber, empty <vars> recede. */
-export const KeyPreview = ({
-  pkSegments,
-  pkValues,
-  skOp,
-  skSegments,
-  skValues,
-  sk2Values,
-}: {
-  pkSegments: Segments;
-  pkValues: Record<string, string>;
-  skOp: SkOp;
-  skSegments: Segments;
-  skValues: Record<string, string>;
-  sk2Values: Record<string, string>;
-}) => {
-  return (
-    <span className="font-mono text-[11px] whitespace-nowrap">
-      <span className="text-muted">{'→  '}</span>
-      <ResolvedPattern segments={pkSegments} values={pkValues} />
-      {skOp === 'none' ? (
-        <span className="text-muted">{'  ·  any sort key'}</span>
-      ) : (
-        <>
-          <span className="text-muted">{'  ·  '}</span>
-          <span className="text-muted">{SK_OP_LABEL[skOp]}&nbsp;</span>
-          <ResolvedPattern segments={skSegments} values={skValues} />
-          {skOp === 'Between' && (
-            <>
-              <span className="text-muted">{' and '}</span>
-              <ResolvedPattern segments={skSegments} values={sk2Values} />
-            </>
-          )}
-        </>
-      )}
-    </span>
-  );
-};
-
-function ResolvedPattern({
-  segments,
-  values,
-}: {
-  segments: Segments;
-  values: Record<string, string>;
-}) {
-  return (
-    <>
-      {segments.map((seg, i) =>
-        seg.type === 'literal' ? (
-          <span key={i} className="text-muted">
-            {seg.value}
-          </span>
-        ) : (values[seg.name] ?? '').trim() ? (
-          <span key={i} className="text-secondary">
-            {values[seg.name]}
-          </span>
-        ) : (
-          <span key={i} className="text-muted">{`<${seg.name}>`}</span>
-        ),
-      )}
-    </>
-  );
-}
 
 export const PatternRow = ({
   label,

@@ -20,7 +20,7 @@ import {
 } from './FiltersTable.tsx';
 import type { Entity, SkOp, TableSchema } from '../../domain/schema/types.ts';
 import { isMacOS } from '../../services/runtime.ts';
-import { KeyPreview, PatternRow, SK_OPS, ValueBox } from './utils.tsx';
+import { PatternRow, SK_OPS, ValueBox } from './utils.tsx';
 
 interface QueryBuilderProps {
   schema: TableSchema;
@@ -46,7 +46,6 @@ interface QueryBuilderProps {
   activeQueryName?: string;
   isLoading?: boolean;
 }
-
 
 export function QueryBuilder({
   schema,
@@ -291,22 +290,11 @@ export function QueryBuilder({
               </span>
             )}
           </div>
-
-          <div className="flex flex-col gap-1 pt-1 border-t border-line-dim">
-            <div className="pt-2 overflow-x-auto">
-              <KeyPreview
-                pkSegments={parsedPk.segments}
-                pkValues={pkValues}
-                skOp={skOp}
-                skSegments={parsedSk.segments}
-                skValues={skValues}
-                sk2Values={sk2Values}
-              />
+          {executeDisabledReason && (
+            <div className="flex flex-col gap-1 rounded-md bg-rose-400/20 px-3 py-1">
+              <span className="text-[12px] text-rose">{executeDisabledReason}</span>
             </div>
-            {executeDisabledReason && (
-              <span className="text-[12px] text-muted">{executeDisabledReason}</span>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

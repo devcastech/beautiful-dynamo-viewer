@@ -63,6 +63,33 @@ describe('schema operations', () => {
   });
 });
 
+describe('importing a schema whose id already exists', () => {
+  it('replaceSchema swaps the stored schema in place', () => {
+    const schemas = [makeSchema(), makeSchema({ id: 's2', name: 'Other' })];
+    const next = ops.replaceSchema(schemas, makeSchema({ name: 'Shop v2' }));
+    expect(next.map((s) => [s.id, s.name])).toEqual([
+      ['s1', 'Shop v2'],
+      ['s2', 'Other'],
+    ]);
+  });
+
+  it('addSchemaCopy keeps both as independent schemas', () => {
+    let schemas = [makeSchema()];
+    schemas = ops.addSchemaCopy(schemas, makeSchema(), 'new-1');
+    schemas = ops.addSchemaCopy(schemas, makeSchema(), 'new-2');
+    expect(schemas.map((s) => [s.id, s.name])).toEqual([
+      ['s1', 'Shop'],
+      ['new-1', 'Shop (copy)'],
+      ['new-2', 'Shop (copy 2)'],
+    ]);
+
+    // Editing or deleting one no longer touches the other.
+    schemas = ops.updateSchema(schemas, 'new-1', { description: 'edited' });
+    expect(schemas[0].description).not.toBe('edited');
+    expect(ops.deleteSchema(schemas, 'new-1').map((s) => s.id)).toEqual(['s1', 'new-2']);
+  });
+});
+
 describe('entity operations', () => {
   it('addEntity appends the entity and registers unknown indexes', () => {
     const [schema] = ops.addEntity([makeSchema()], 's1', newEntity);

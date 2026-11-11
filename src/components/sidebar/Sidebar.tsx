@@ -13,6 +13,7 @@ interface SidebarProps {
   schema: TableSchema;
   selectedEntityName: string | null;
   activeQueryId: string | null;
+  activeTarget: 'base' | string;
   onSelectEntity: (name: string) => void;
   onSelectIndex: (entityName: string, indexName: string) => void;
   onSelectQuery: (query: SavedQuery) => void;
@@ -27,6 +28,7 @@ export function Sidebar({
   schema,
   selectedEntityName,
   activeQueryId,
+  activeTarget,
   onSelectEntity,
   onSelectIndex,
   onSelectQuery,
@@ -100,6 +102,7 @@ export function Sidebar({
       value={{
         selectedEntityName,
         activeQueryId,
+        activeTarget,
         term,
         collapsedGroups,
         collapsedEntities,

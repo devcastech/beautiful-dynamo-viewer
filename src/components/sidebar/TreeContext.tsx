@@ -4,6 +4,8 @@ import type { SavedQuery } from "../../domain/schema/types.ts";
 interface SidebarTreeContextValue {
   selectedEntityName: string | null;
   activeQueryId: string | null;
+  /** Target of the query being built: 'base' or an index name. */
+  activeTarget: 'base' | string;
   term: string;
   collapsedGroups: Record<string, boolean>;
   collapsedEntities: Record<string, boolean>;

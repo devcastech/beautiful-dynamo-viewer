@@ -41,6 +41,7 @@ export default function App() {
   const entity =
     schema?.entities.find((e) => e.name === ws.entityName) ?? schema?.entities[0] ?? null;
   const activeQuery = schema?.queries.find((q) => q.id === ws.queryId) ?? null;
+  const target = entity?.indexPatterns.some((p) => p.index === ws.target) ? ws.target : 'base';
 
   const executeDisabledReason = !isTauriRuntime()
     ? 'Query execution requires the desktop app.'
@@ -212,6 +213,7 @@ export default function App() {
               schema={schema}
               selectedEntityName={entity?.name ?? null}
               activeQueryId={ws.queryId}
+              activeTarget={target}
               onSelectEntity={(name) => ws.dispatch({ type: 'selectEntity', name })}
               onSelectIndex={(entityName, indexName) =>
                 ws.dispatch({ type: 'selectIndex', entityName, indexName })
@@ -235,6 +237,8 @@ export default function App() {
               tableName={tableName}
               tab={ws.tab}
               onTabChange={(tab) => ws.dispatch({ type: 'setTab', tab })}
+              target={target}
+              onTargetChange={(target) => ws.dispatch({ type: 'setTarget', target })}
               loadedQuery={ws.loadedQuery}
               loadSeq={ws.loadSeq}
               activeQuery={activeQuery}

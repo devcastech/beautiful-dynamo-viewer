@@ -10,6 +10,8 @@ interface WorkspaceState {
   /** Selected entity (null = nothing selected yet). */
   entityName: string | null;
   tab: WorkspaceTab;
+  /** What the builder queries: 'base' or one of the entity's index names. */
+  target: 'base' | string;
   /** Saved query currently mirrored by the builder, if any. */
   queryId: string | null;
   /** One-shot payload to hydrate the builder; bump of loadSeq re-applies it. */
@@ -24,6 +26,7 @@ type WorkspaceAction =
   | { type: 'selectIndex'; entityName: string; indexName: string }
   | { type: 'selectQuery'; query: SavedQuery }
   | { type: 'setTab'; tab: WorkspaceTab }
+  | { type: 'setTarget'; target: 'base' | string }
   | { type: 'openNewEntity'; partitionKey: string }
   | { type: 'openEditEntity'; name?: string }
   | { type: 'closeDraft' }
@@ -35,34 +38,47 @@ type WorkspaceAction =
 export const initialWorkspaceState: WorkspaceState = {
   entityName: null,
   tab: 'query',
+  target: 'base',
   queryId: null,
   loadedQuery: null,
   loadSeq: 0,
   draft: null,
 };
 
+function blankQuery(entityName: string, target: 'base' | string): SavedQuery {
+  return {
+    id: '',
+    name: '',
+    entityName,
+    target,
+    pkValues: {},
+    skOp: 'none',
+    skValues: {},
+    sk2Values: {},
+  };
+}
+
 export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
   switch (action.type) {
     case 'reset':
       return initialWorkspaceState;
 
+    // Loads a blank base-table query so re-clicking the already selected entity
+    // still takes the builder back to the base table.
     case 'selectEntity':
-      return { ...initialWorkspaceState, entityName: action.name, loadSeq: state.loadSeq };
+      return {
+        ...initialWorkspaceState,
+        entityName: action.name,
+        loadedQuery: blankQuery(action.name, 'base'),
+        loadSeq: state.loadSeq + 1,
+      };
 
     case 'selectIndex':
       return {
         ...initialWorkspaceState,
         entityName: action.entityName,
-        loadedQuery: {
-          id: '',
-          name: '',
-          entityName: action.entityName,
-          target: action.indexName,
-          pkValues: {},
-          skOp: 'none',
-          skValues: {},
-          sk2Values: {},
-        },
+        target: action.indexName,
+        loadedQuery: blankQuery(action.entityName, action.indexName),
         loadSeq: state.loadSeq + 1,
       };
 
@@ -70,6 +86,7 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return {
         ...initialWorkspaceState,
         entityName: action.query.entityName,
+        target: action.query.target,
         queryId: action.query.id || null,
         loadedQuery: action.query,
         loadSeq: state.loadSeq + 1,
@@ -77,6 +94,9 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case 'setTab':
       return { ...state, tab: action.tab };
+
+    case 'setTarget':
+      return { ...state, target: action.target };
 
     case 'openNewEntity':
       return { ...state, draft: { kind: 'new', partitionKey: action.partitionKey } };
@@ -92,7 +112,13 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return { ...state, draft: null };
 
     case 'entitySaved':
-      return { ...state, entityName: action.name, draft: null };
+      // A rename resets the builder (see WorkspaceArea), so the target goes with it.
+      return {
+        ...state,
+        entityName: action.name,
+        target: action.name === state.entityName ? state.target : 'base',
+        draft: null,
+      };
 
     case 'entityDeleted':
       return state.entityName === action.name

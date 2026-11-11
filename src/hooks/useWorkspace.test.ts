@@ -19,13 +19,27 @@ describe('workspaceReducer', () => {
     expect(workspaceReducer(dirty, { type: 'reset' })).toEqual(initialWorkspaceState);
   });
 
-  it('selectEntity selects the entity but preserves loadSeq', () => {
+  it('selectEntity loads a blank base-table query and bumps loadSeq', () => {
     const state = { ...initialWorkspaceState, loadSeq: 5, queryId: 'q9', tab: 'entity' as const };
     const next = workspaceReducer(state, { type: 'selectEntity', name: 'User' });
     expect(next.entityName).toBe('User');
-    expect(next.loadSeq).toBe(5);
+    expect(next.loadSeq).toBe(6);
+    expect(next.loadedQuery?.target).toBe('base');
     expect(next.queryId).toBeNull();
     expect(next.tab).toBe('query');
+  });
+
+  it('tracks the query target across index, entity and dropdown changes', () => {
+    let s = workspaceReducer(initialWorkspaceState, {
+      type: 'selectIndex',
+      entityName: 'Order',
+      indexName: 'GSI2',
+    });
+    expect(s.target).toBe('GSI2');
+    s = workspaceReducer(s, { type: 'setTarget', target: 'GSI1' });
+    expect(s.target).toBe('GSI1');
+    s = workspaceReducer(s, { type: 'selectEntity', name: 'Order' });
+    expect(s.target).toBe('base');
   });
 
   it('selectIndex hydrates a blank query on the index and bumps loadSeq', () => {

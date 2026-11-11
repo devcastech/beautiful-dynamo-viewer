@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildQueryParams, type BuildQueryParamsInput } from './buildQueryParams.ts';
+import {
+  buildQueryParams,
+  FREE_SK_VAR,
+  type BuildQueryParamsInput,
+} from './buildQueryParams.ts';
 import type { Entity, TableSchema } from './types.ts';
 
 const entity: Entity = {
@@ -139,5 +143,22 @@ describe('buildQueryParams: filters', () => {
       },
     ];
     expect(buildQueryParams(input({ filters })).filters).toEqual(filters);
+  });
+});
+
+describe('buildQueryParams: entity without an SK pattern', () => {
+  const bare: Entity = { ...entity, sk: '' };
+
+  it('uses the free-typed value as the sort key', () => {
+    const p = buildQueryParams(
+      input({
+        entity: bare,
+        pkValues: { orderId: '1' },
+        skOp: 'BeginsWith',
+        skValues: { [FREE_SK_VAR]: 'META#' },
+      }),
+    );
+    expect(p.skName).toBe('SK');
+    expect(p.skCondition).toEqual({ op: 'BeginsWith', value: 'META#' });
   });
 });

@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Bookmark, Check, Play, RefreshCw, X } from 'lucide-react';
 import { parsePattern } from '../../domain/schema/patternParser.ts';
 import { resolveTarget } from '../../domain/schema/resolveTarget.ts';
-import { buildQueryParams, type QueryParams } from '../../domain/schema/buildQueryParams.ts';
+import {
+  buildQueryParams,
+  parseSkPattern,
+  type QueryParams,
+} from '../../domain/schema/buildQueryParams.ts';
 import { Input } from '../ui/Input.tsx';
 import { Select } from '../ui/Select.tsx';
 import { IconButton } from '../ui/Button.tsx';
@@ -87,7 +91,7 @@ export function QueryBuilder({
   const resolved = resolveTarget(schema, entity, selectedTarget);
 
   const parsedPk = parsePattern(resolved.pkPattern);
-  const parsedSk = parsePattern(resolved.skPattern);
+  const parsedSk = parseSkPattern(resolved.skPattern);
 
   const pkFilled = parsedPk.variables.every((v) => (pkValues[v] ?? '').trim() !== '');
   const skFilled =

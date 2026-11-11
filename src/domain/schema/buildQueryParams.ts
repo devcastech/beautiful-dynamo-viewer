@@ -1,4 +1,4 @@
-import { parsePattern } from './patternParser.ts';
+import { parsePattern, type ParsedPattern } from './patternParser.ts';
 import { resolveTarget } from './resolveTarget.ts';
 import type { Entity, QueryFilter, SkOp, TableSchema } from './types.ts';
 
@@ -37,6 +37,18 @@ export interface BuildQueryParamsInput {
   filters?: QueryFilter[];
 }
 
+/** Slot name holding the free-typed sort key when the entity declares no SK pattern. */
+export const FREE_SK_VAR = 'value';
+
+/**
+ * Parse a sort-key pattern for querying. An entity with an empty SK pattern still
+ * lives in a table with a sort key, so the pattern degrades to one free-text slot
+ * instead of an uneditable empty value.
+ */
+export function parseSkPattern(pattern: string): ParsedPattern {
+  return parsePattern(pattern.trim() === '' ? `<${FREE_SK_VAR}>` : pattern);
+}
+
 /**
  * Resolve a saved/in-progress query (entity + key patterns + user values) into the
  * concrete DynamoDB Query request. Picks base-table vs. GSI key attributes from the
@@ -50,7 +62,7 @@ export function buildQueryParams(input: BuildQueryParamsInput): QueryParams {
   const resolved = resolveTarget(schema, entity, target);
 
   const parsedPk = parsePattern(resolved.pkPattern);
-  const parsedSk = parsePattern(resolved.skPattern);
+  const parsedSk = parseSkPattern(resolved.skPattern);
 
   const pkValue = parsedPk.resolve(pkValues);
 

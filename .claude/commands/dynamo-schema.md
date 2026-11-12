@@ -1,4 +1,4 @@
-Read the files provided in $ARGUMENTS and generate a schema JSON for this project. The output is the app's current schema format (`version: 2`), which *Import from JSON* validates strictly — save it to a `.json` file and import it from the top bar.
+Read the files provided in $ARGUMENTS and generate a schema JSON for this project. The output is the app's current schema format (`version: 2`), which *Import from JSON* validates strictly. Save it to a `.json` file and import it from the top bar.
 
 ## What to do
 
@@ -8,12 +8,12 @@ Read the files provided in $ARGUMENTS and generate a schema JSON for this projec
    - The PK and SK patterns (e.g. `ORDER#<orderId>`, `SHIPMENT#<date>#<num>`)
    - What the entity writes into each GSI (pk/sk patterns), and the GSI's real attribute names (GSI1PK, GSI1SK, etc.)
    - Attribute names written or read
-   - Access patterns (every Query / GetItem / Scan call) — summarize them in the entity `description`
+   - Access patterns (every Query / GetItem / Scan call); summarize them in the entity `description`
 4. One schema object describes one table. If more than one table is found, produce one JSON file per table.
 
-## Output rules — STRICT
+## Output rules (STRICT)
 
-- Output ONLY a valid JSON object. Nothing else — no explanation, no markdown prose, no headers, no analysis.
+- Output ONLY a valid JSON object. Nothing else: no explanation, no markdown prose, no headers, no analysis.
 - Start your response with `{` and end with `}`. No text before or after.
 - Do NOT wrap in markdown fences (no ```json or ```typescript).
 - All strings must use double quotes (valid JSON).
@@ -54,11 +54,11 @@ Read the files provided in $ARGUMENTS and generate a schema JSON for this projec
 - `name`: short display label for the schema (kebab-case is fine); `tableName` is the real table
 - `keys`: the physical base-table key attribute names (usually `PK`/`SK`)
 - `indexes`: every GSI referenced by any entity, defined once here with its physical attribute names; `skAttr` may be omitted if the GSI has no sort key
-- `indexPatterns`: per entity, what it writes into each GSI; `index` must match an entry in `indexes`; use `[]` if the entity writes to none
+- `indexPatterns`: per entity, what it writes into each GSI; `index` must match an entry in `indexes`; use `[]` if the entity writes to none; if the GSI has no sort key, still include `"sk": ""`
 - `priority`: 1 = primary record for this PK, 2+ = secondary/audit records sharing the same PK
 - `pk` / `sk`: use `PREFIX#<camelCaseVar>` for variables, bare string for constants (e.g. `"ORDER"`, `"__META__"`)
 - `attributes`: all top-level attribute names found written or read in the code, no duplicates
-- `queries`: always `[]` — saved queries are created in the app
+- `queries`: always `[]`; saved queries are created in the app
 
 ## Variable notation
 

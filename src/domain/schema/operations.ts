@@ -8,6 +8,33 @@ export function addSchema(schemas: TableSchema[], schema: TableSchema): TableSch
   return [...schemas, schema];
 }
 
+/** Swap in `schema` for the stored schema with the same id, keeping its position. */
+export function replaceSchema(schemas: TableSchema[], schema: TableSchema): TableSchema[] {
+  return schemas.map((s) => (s.id === schema.id ? schema : s));
+}
+
+/** Names already in use get a " (copy)" / " (copy N)" suffix so duplicates stay tellable apart. */
+function uniqueSchemaName(schemas: TableSchema[], name: string): string {
+  const taken = new Set(schemas.map((s) => s.name));
+  if (!taken.has(name)) return name;
+  let candidate = `${name} (copy)`;
+  for (let n = 2; taken.has(candidate); n++) candidate = `${name} (copy ${n})`;
+  return candidate;
+}
+
+/**
+ * Add `schema` as an independent entry: a fresh id (ids are the identity every
+ * other operation keys on, so an imported file must never bring a colliding one)
+ * and a name that doesn't clash with an existing schema.
+ */
+export function addSchemaCopy(
+  schemas: TableSchema[],
+  schema: TableSchema,
+  newId: string,
+): TableSchema[] {
+  return [...schemas, { ...schema, id: newId, name: uniqueSchemaName(schemas, schema.name) }];
+}
+
 export function updateSchema(
   schemas: TableSchema[],
   id: string,

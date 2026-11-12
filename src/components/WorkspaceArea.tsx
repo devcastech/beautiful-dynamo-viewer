@@ -21,6 +21,9 @@ interface WorkspaceAreaProps {
   tableName: string;
   tab: WorkspaceTab;
   onTabChange: (tab: WorkspaceTab) => void;
+  /** Query target ('base' or an index name); owned by the workspace so the sidebar can mirror it. */
+  target: 'base' | string;
+  onTargetChange: (target: 'base' | string) => void;
 
   /** One-shot builder hydration payload; re-applied whenever loadSeq bumps. */
   loadedQuery: SavedQuery | null;
@@ -40,6 +43,8 @@ export function WorkspaceArea({
   tableName,
   tab,
   onTabChange,
+  target: selectedTarget,
+  onTargetChange,
   loadedQuery,
   loadSeq,
   activeQuery,
@@ -49,7 +54,6 @@ export function WorkspaceArea({
   onEditEntity,
 }: WorkspaceAreaProps) {
   // Builder state lives here so it survives tab switches.
-  const [selectedTarget, setSelectedTarget] = useState<'base' | string>('base');
   const [pkValues, setPkValues] = useState<Record<string, string>>({});
   const [skOp, setSkOp] = useState<SkOp>('none');
   const [skValues, setSkValues] = useState<Record<string, string>>({});
@@ -61,7 +65,6 @@ export function WorkspaceArea({
 
   // Reset the builder when the selected entity changes…
   useEffect(() => {
-    setSelectedTarget('base');
     setPkValues({});
     setSkOp('none');
     setSkValues({});
@@ -74,7 +77,6 @@ export function WorkspaceArea({
   // …then hydrate it when a saved query (or index shortcut) is loaded.
   useEffect(() => {
     if (!loadedQuery) return;
-    setSelectedTarget(loadedQuery.target);
     setPkValues(loadedQuery.pkValues);
     setSkOp(loadedQuery.skOp);
     setSkValues(loadedQuery.skValues);
@@ -171,7 +173,7 @@ export function WorkspaceArea({
               skValues={skValues}
               sk2Values={sk2Values}
               filters={filters}
-              onChangeTarget={setSelectedTarget}
+              onChangeTarget={onTargetChange}
               onChangePkValues={setPkValues}
               onChangeSkOp={setSkOp}
               onChangeSkValues={setSkValues}

@@ -115,6 +115,17 @@ export function useSchemaStore(repo: SchemaRepository) {
       mutate(ops.addSchema(list, schema));
       setActiveId(schema.id);
     },
+    /** Overwrite the stored schema that shares `schema.id` and make it active. */
+    replaceSchema(schema: TableSchema) {
+      mutate(ops.replaceSchema(list, schema));
+      setActiveId(schema.id);
+    },
+    /** Add `schema` under a fresh id (and a non-clashing name) and make it active. */
+    addSchemaCopy(schema: TableSchema) {
+      const id = crypto.randomUUID();
+      mutate(ops.addSchemaCopy(list, schema, id));
+      setActiveId(id);
+    },
     updateSchema(patch: Partial<Omit<TableSchema, 'id' | 'version'>>) {
       withActive((id) => ops.updateSchema(list, id, patch));
     },

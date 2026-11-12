@@ -60,6 +60,7 @@ function EntityTreeItem({ entity, queries }: { entity: Entity; queries: SavedQue
   const {
     selectedEntityName,
     activeQueryId,
+    activeTarget,
     collapsedEntities,
     term,
     toggleEntity,
@@ -137,21 +138,26 @@ function EntityTreeItem({ entity, queries }: { entity: Entity; queries: SavedQue
 
       {showChildren && (
         <>
-          {entity.indexPatterns.map((pattern) => (
-            <TreeRow key={`i:${pattern.index}`} active={false} className="pl-10">
-              <button
-                type="button"
-                onClick={() => onSelectIndex(entity.name, pattern.index)}
-                aria-label={`Query via index ${pattern.index} on ${entity.name}`}
-                className="w-full flex items-center gap-2 py-1 pr-3 bg-transparent border-0 cursor-pointer text-left"
-              >
-                <IndexChip>{pattern.index}</IndexChip>
-                <span className="font-mono text-[11px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                  <PatternChipLabel label={getPartitionChipLabel(pattern.pk)} />
-                </span>
-              </button>
-            </TreeRow>
-          ))}
+          {entity.indexPatterns.map((pattern) => {
+            // A saved query marks its own row; the index row only lights up for ad-hoc queries.
+            const indexActive = isActive && !activeQueryId && activeTarget === pattern.index;
+            return (
+              <TreeRow key={`i:${pattern.index}`} active={indexActive} className="pl-10">
+                <button
+                  type="button"
+                  onClick={() => onSelectIndex(entity.name, pattern.index)}
+                  aria-current={indexActive ? 'true' : undefined}
+                  aria-label={`Query via index ${pattern.index} on ${entity.name}`}
+                  className="w-full flex items-center gap-2 py-1 pr-3 bg-transparent border-0 cursor-pointer text-left"
+                >
+                  <IndexChip>{pattern.index}</IndexChip>
+                  <span className="font-mono text-[11px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <PatternChipLabel label={getPartitionChipLabel(pattern.pk)} />
+                  </span>
+                </button>
+              </TreeRow>
+            );
+          })}
 
           {queries.map((query) => (
             <QueryRow

@@ -16,7 +16,7 @@ import { useTheme } from './hooks/useTheme.ts';
 import { forgetTableNames, useTableName } from './hooks/useTableName.ts';
 import { createSchemaRepository } from './services/storage.ts';
 import { isTauriRuntime } from './services/runtime.ts';
-import { alertDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
+import { alertDialog, chooseDialog, confirmDialog, saveTextFileAs } from './services/dialog.ts';
 import { parseSchemaImport } from './domain/schema/migrate.ts';
 import type { Entity, TableSchema } from './domain/schema/types.ts';
 import { useUpdater } from './hooks/useUpdater.ts';
@@ -41,6 +41,7 @@ export default function App() {
   const entity =
     schema?.entities.find((e) => e.name === ws.entityName) ?? schema?.entities[0] ?? null;
   const activeQuery = schema?.queries.find((q) => q.id === ws.queryId) ?? null;
+  const target = entity?.indexPatterns.some((p) => p.index === ws.target) ? ws.target : 'base';
 
   const executeDisabledReason = !isTauriRuntime()
     ? 'Query execution requires the desktop app.'
@@ -72,7 +73,19 @@ export default function App() {
   async function handleImportSchema(file: File) {
     try {
       const imported = parseSchemaImport(await file.text());
-      store.addSchema(imported);
+      const existing = store.schemas.find((s) => s.id === imported.id);
+      if (!existing) {
+        store.addSchema(imported);
+      } else {
+        const choice = await chooseDialog(
+          `This file is the same schema as "${existing.name}", which is already in your workspace.\n\n` +
+            'Replace it with the file (local changes to it are lost), or keep both and import the file as a copy?',
+          { title: 'Schema already exists', primaryLabel: 'Replace', secondaryLabel: 'Keep both' },
+        );
+        if (choice === null) return;
+        if (choice === 'primary') store.replaceSchema(imported);
+        else store.addSchemaCopy(imported);
+      }
       ws.dispatch({ type: 'reset' });
     } catch (err) {
       await alertDialog(err instanceof Error ? err.message : String(err), 'Import error');
@@ -200,6 +213,7 @@ export default function App() {
               schema={schema}
               selectedEntityName={entity?.name ?? null}
               activeQueryId={ws.queryId}
+              activeTarget={target}
               onSelectEntity={(name) => ws.dispatch({ type: 'selectEntity', name })}
               onSelectIndex={(entityName, indexName) =>
                 ws.dispatch({ type: 'selectIndex', entityName, indexName })
@@ -223,6 +237,8 @@ export default function App() {
               tableName={tableName}
               tab={ws.tab}
               onTabChange={(tab) => ws.dispatch({ type: 'setTab', tab })}
+              target={target}
+              onTargetChange={(target) => ws.dispatch({ type: 'setTarget', target })}
               loadedQuery={ws.loadedQuery}
               loadSeq={ws.loadSeq}
               activeQuery={activeQuery}

@@ -8,6 +8,30 @@ export async function confirmDialog(message: string, title?: string): Promise<bo
   return window.confirm(message);
 }
 
+/**
+ * Choice between two actions plus a way out. Resolves to 'primary', 'secondary',
+ * or null when the user cancels (Cancel button, Esc, or closing the dialog).
+ */
+export async function chooseDialog(
+  message: string,
+  options: { title?: string; primaryLabel: string; secondaryLabel: string },
+): Promise<'primary' | 'secondary' | null> {
+  const { title, primaryLabel, secondaryLabel } = options;
+  if (isTauriRuntime()) {
+    const { message: showMessage } = await import('@tauri-apps/plugin-dialog');
+    const result = await showMessage(message, {
+      title,
+      kind: 'warning',
+      buttons: { yes: primaryLabel, no: secondaryLabel, cancel: 'Cancel' },
+    });
+    if (result === primaryLabel || result === 'Yes') return 'primary';
+    if (result === secondaryLabel || result === 'No') return 'secondary';
+    return null;
+  }
+  if (window.confirm(`${message}\n\nOK = ${primaryLabel}`)) return 'primary';
+  return window.confirm(`${secondaryLabel}?\n\nCancel aborts.`) ? 'secondary' : null;
+}
+
 export async function alertDialog(message: string, title?: string): Promise<void> {
   if (isTauriRuntime()) {
     const { message: showMessage } = await import('@tauri-apps/plugin-dialog');
